@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cadastro — Ferrovias</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-body-tertiary">
+
+    <main class="container min-vh-100 d-flex align-items-center justify-content-center py-5">
+      <div class="row justify-content-center w-100">
+        <div class="col-md-8 col-lg-6 col-xl-5">
+
+          <div class="card shadow-sm border-0">
+            <div class="card-body p-4 p-md-5">
+
+              <div class="text-center mb-4">
+                <img src="../assets/img/logo.png" alt="Ferrovias" width="64" height="64" class="object-fit-contain mb-3">
+                <h1 class="h3 mb-0">Faça seu cadastro</h1>
+              </div>
+
+              <form>
+
+                <div class="text-center mb-4">
+                  <div class="d-inline-flex align-items-center justify-content-center bg-body-secondary rounded-circle mb-2 p-4">
+                    <i class="bi bi-person fs-1 text-secondary"></i>
+                  </div>
+                  <div>
+                    <label for="fotoPerfil" class="form-label">Foto de perfil</label>
+                    <input type="file" class="form-control" id="fotoPerfil" accept="image/*">
+                  </div>
+                </div>
+
+                <div class="row g-3">
+
+                  <div class="col-12 col-md-6">
+                    <label for="nome" class="form-label">Nome</label>
+                    <input type="text" class="form-control" id="nome" placeholder="Nome">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label for="nascimento" class="form-label">Data de nascimento</label>
+                    <input type="date" class="form-control" id="nascimento">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label for="email" class="form-label">E-mail</label>
+                    <input type="email" class="form-control" id="email" placeholder="E-mail">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label for="telefone" class="form-label">Telefone</label>
+                    <input type="tel" class="form-control" id="telefone" placeholder="Telefone">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label for="cpf" class="form-label">CPF</label>
+                    <input type="text" class="form-control" id="cpf" placeholder="CPF">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label for="perfil" class="form-label">Perfil</label>
+                    <select class="form-select" id="perfil">
+                      <option selected disabled>Perfil</option>
+                      <option>Cliente</option>
+                      <option>Gestor</option>
+                      <option>Maquinista</option>
+                    </select>
+                  </div>
+
+                </div>
+
+                <div class="d-grid mt-4">
+                  <button type="submit" class="btn btn-primary btn-lg">Salvar</button>
+                </div>
+
+              </form>
+
+              <hr class="my-4">
+
+              <p class="text-center mb-0 small">
+                Já tem conta? <a href="../index.html">Voltar para o login</a>
+              </p>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

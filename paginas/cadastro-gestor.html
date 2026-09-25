@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cadastro de Gestor — Ferrovias</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-body-tertiary">
+
+    <main class="container min-vh-100 d-flex align-items-center justify-content-center py-5">
+      <div class="row justify-content-center w-100">
+        <div class="col-md-8 col-lg-6 col-xl-5">
+
+          <div class="card shadow-sm border-0">
+            <div class="card-body p-4 p-md-5">
+
+              <div class="text-center mb-4">
+                <img src="../assets/img/logo.png" alt="Ferrovias" width="64" height="64" class="object-fit-contain mb-3">
+                <h1 class="h3 mb-0">Gestor</h1>
+              </div>
+
+              <form>
+
+                <div class="row g-3">
+
+                  <div class="col-12 col-md-6">
+                    <label for="matricula" class="form-label">Matrícula profissional</label>
+                    <input type="text" class="form-control" id="matricula" placeholder="Matrícula profissional">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label for="empresa" class="form-label">Empresa ferroviária</label>
+                    <input type="text" class="form-control" id="empresa" placeholder="Empresa ferroviária">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label for="regiao" class="form-label">Região de atuação</label>
+                    <input type="text" class="form-control" id="regiao" placeholder="Região de atuação">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label for="turno" class="form-label">Turno</label>
+                    <select class="form-select" id="turno">
+                      <option selected disabled>Turno</option>
+                      <option>Matutino</option>
+                      <option>Vespertino</option>
+                      <option>Noturno</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label for="identificacao" class="form-label">Número de identificação</label>
+                    <input type="tel" class="form-control" id="identificacao" placeholder="Número de identificação">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label for="senhaGestor" class="form-label">Senha</label>
+                    <input type="password" class="form-control" id="senhaGestor" placeholder="Senha">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label for="confirmarSenha" class="form-label">Confirmar senha</label>
+                    <input type="password" class="form-control" id="confirmarSenha" placeholder="Confirmar senha">
+                  </div>
+
+                </div>
+
+                <div class="d-grid mt-4">
+                  <button type="submit" class="btn btn-primary btn-lg">Entrar</button>
+                </div>
+
+              </form>
+
+              <hr class="my-4">
+
+              <p class="text-center mb-0 small">
+                <a href="../index.html">Voltar para o login</a>
+              </p>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
