@@ -2,7 +2,7 @@
 
 session_start();
 
-require_once "conexao.php";
+require_once "assets/php/conexao.php";
 
 $erro = "";
 
@@ -226,7 +226,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             Ainda não tem conta?
 
-                            <a href="cadastro.html">
+                            <a href="assets/php/cadastro.php">
                                 Faça seu cadastro
                             </a>
 

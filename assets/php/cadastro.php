@@ -41,9 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } else {
 
-        /*
-         * Verifica se o login já existe
-         */
+        
         $sql = "SELECT id_usuario FROM usuarios WHERE login = ?";
 
         $stmt = $conexao->prepare($sql);
@@ -70,14 +68,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
 
-        /*
-         * Se não encontrou erro, continua o cadastro
-         */
+        
         if (empty($erro)) {
 
-            /*
-             * Verifica se o CPF já existe
-             */
+            
             $sql = "SELECT cliente_id FROM cliente WHERE cpf_cliente = ?";
 
             $stmt = $conexao->prepare($sql);
@@ -106,26 +100,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
 
-        /*
-         * Cadastro
-         */
+        
         if (empty($erro)) {
 
-            /*
-             * Criptografa a senha
-             */
+            
             $senhaHash = password_hash($senha, PASSWORD_DEFAULT);
 
-            /*
-             * Inicia uma transação
-             */
+            
             $conexao->begin_transaction();
 
             try {
 
-                /*
-                 * 1 - Cria o usuário
-                 */
+                
                 $sql = "INSERT INTO usuarios
                         (login, senha, papel, ativo, telefone)
                         VALUES (?, ?, 'cliente', TRUE, ?)";
@@ -147,17 +133,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception("Erro ao cadastrar usuário.");
                 }
 
-                /*
-                 * Pega o ID do usuário criado
-                 */
+                
                 $id_usuario = $conexao->insert_id;
 
                 $stmt->close();
 
 
-                /*
-                 * 2 - Cria o cliente
-                 */
+                
                 $sql = "INSERT INTO cliente
                         (
                             id_usuario,
@@ -190,18 +172,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->close();
 
 
-                /*
-                 * Confirma tudo
-                 */
+                
                 $conexao->commit();
 
                 $sucesso = "Cadastro realizado com sucesso! Você já pode fazer login.";
 
+                header("Location: ../../index.php");
+
             } catch (Exception $e) {
 
-                /*
-                 * Desfaz o cadastro se alguma etapa falhar
-                 */
+                
                 $conexao->rollback();
 
                 $erro = "Não foi possível realizar o cadastro.";
@@ -502,7 +482,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         Já tem conta?
 
-                        <a href="login.php">
+                        <a href="../../index.php">
                             Voltar para o login
                         </a>
 

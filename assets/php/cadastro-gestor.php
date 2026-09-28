@@ -22,9 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $senha = $_POST['senha'] ?? '';
     $confirmarSenha = $_POST['confirmarSenha'] ?? '';
 
-    /*
-     * Verifica campos obrigatórios
-     */
+    
     if (
         empty($nome) ||
         empty($email) ||
@@ -57,9 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } else {
 
-        /*
-         * Verifica se o login já existe
-         */
+        
         $sql = "SELECT id_usuario
                 FROM usuarios
                 WHERE login = ?";
@@ -85,10 +81,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         }
 
-
-        /*
-         * Verifica CPF
-         */
         if (empty($erro)) {
 
             $sql = "SELECT gestor_id
@@ -118,9 +110,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
 
-        /*
-         * Verifica matrícula
-         */
         if (empty($erro)) {
 
             $matriculaNumero = (int) $matricula;
@@ -152,23 +141,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
 
-        /*
-         * Se não houver erro, realiza o cadastro
-         */
         if (empty($erro)) {
 
             $senhaHash = password_hash($senha, PASSWORD_DEFAULT);
 
-            /*
-             * Inicia uma transação
-             */
             $conexao->begin_transaction();
 
             try {
 
-                /*
-                 * 1 - Cadastra o usuário
-                 */
+                
                 $sql = "INSERT INTO usuarios
                         (login, senha, papel, ativo)
                         VALUES (?, ?, 'gestor', TRUE)";
@@ -189,17 +170,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception("Erro ao cadastrar usuário.");
                 }
 
-                /*
-                 * Recupera o ID criado
-                 */
+               
                 $id_usuario = $conexao->insert_id;
 
                 $stmt->close();
 
 
-                /*
-                 * 2 - Cadastra o gestor
-                 */
                 $sql = "INSERT INTO gestor
                         (
                             id_usuario,
@@ -242,19 +218,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->close();
 
 
-                /*
-                 * Confirma os dois cadastros
-                 */
                 $conexao->commit();
 
                 $sucesso = "Cadastro de gestor realizado com sucesso!";
 
             } catch (Exception $e) {
 
-                /*
-                 * Se alguma coisa der errado,
-                 * desfaz os dois INSERTs.
-                 */
                 $conexao->rollback();
 
                 $erro = "Não foi possível realizar o cadastro.";
@@ -356,7 +325,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         <div class="row g-3">
 
-                            <!-- DADOS PESSOAIS -->
+                           
 
                             <div class="col-12">
 
@@ -441,7 +410,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
 
 
-                            <!-- DADOS PROFISSIONAIS -->
 
                             <div class="col-12 col-md-6">
 
@@ -561,8 +529,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             </div>
 
-
-                            <!-- ACESSO -->
 
                             <div class="col-12">
 
