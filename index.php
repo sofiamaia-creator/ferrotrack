@@ -1,3 +1,4 @@
+```php
 <?php
 
 session_start();
@@ -31,8 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_regenerate_id(true);
 
             $_SESSION['id_usuario'] = $usuario['id_usuario'];
-            $_SESSION['login'] = $usuario['login'];
-            $_SESSION['papel'] = $usuario['papel'];
+            $_SESSION['usuario_nome'] = $usuario['login'];
+            $_SESSION['usuario_papel'] = $usuario['papel'];
 
             header("Location: paginas/dashboard.php");
             exit;
@@ -110,7 +111,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         </div>
 
-
                         <!-- FORMULÁRIO DE LOGIN -->
 
                         <form method="POST" action="">
@@ -122,7 +122,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </div>
 
                             <?php endif; ?>
-
 
                             <!-- USUÁRIO -->
 
@@ -151,7 +150,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             </div>
 
-
                             <!-- SENHA -->
 
                             <div class="mb-2">
@@ -179,7 +177,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             </div>
 
-
                             <!-- RECUPERAR SENHA -->
 
                             <div class="mb-4 text-end">
@@ -192,7 +189,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </a>
 
                             </div>
-
 
                             <!-- BOTÕES -->
 
@@ -216,7 +212,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
 
                         </form>
-
 
                         <!-- CADASTRO -->
 
@@ -242,7 +237,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     </main>
 
-
     <script
         src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js">
     </script>
@@ -250,3 +244,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </body>
 
 </html>
+```
