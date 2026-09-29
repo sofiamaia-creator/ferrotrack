@@ -16,6 +16,10 @@ require_once "../assets/php/cabecalho.php";
 
 <body class="bg-body-tertiary">
 
+<header>
+  <?php gerarCabecalho(); ?>
+</header>
+
     
     <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
       <div class="container-fluid gap-2">

@@ -1,22 +1,23 @@
 <?php
 require_once "permissao.php";
-?>
 
-<header>
-    <span>
-        Conectado como
-        <?= htmlspecialchars($_SESSION['usuario_nome']) ?>
-        (<?= htmlspecialchars($_SESSION['usuario_papel']) ?>)
-    </span>
+function gerarCabecalho()
+{
+    echo '<header>
+        <span>
+            Conectado como ' . htmlspecialchars($_SESSION["usuario_nome"]) . '
+            (' . htmlspecialchars($_SESSION["usuario_papel"]) . ')
+        </span>
 
-    <nav>
-        <a href="trens.php">Trens</a>
-        <a href="sensores.php">Sensores</a>
+        <nav>
+            <a href="trens.php">Trens</a>
+            <a href="sensores.php">Sensores</a>';
 
-        <?php if (temPapel(['gestor'])): ?>
-            <a href="usuarios.php">Usuários</a>
-        <?php endif; ?>
+    if (temPapel(['gestor'])) {
+        echo '<a href="usuarios.php">Usuários</a>';
+    }
 
-        <a href="sair.php">Sair</a>
-    </nav>
-</header>
+    echo '<a href="sair.php">Sair</a>
+        </nav>
+    </header>';
+}
