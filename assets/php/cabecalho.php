@@ -1,4 +1,5 @@
 <?php
+require_once "permissao.php";
 ?>
 
 <header>
@@ -11,7 +12,11 @@
     <nav>
         <a href="trens.php">Trens</a>
         <a href="sensores.php">Sensores</a>
-        <a href="usuarios.php">Usuários</a>
+
+        <?php if (temPapel(['gestor'])): ?>
+            <a href="usuarios.php">Usuários</a>
+        <?php endif; ?>
+
         <a href="sair.php">Sair</a>
     </nav>
 </header>
