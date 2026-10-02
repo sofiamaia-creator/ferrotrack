@@ -5,6 +5,7 @@ require_once "../assets/php/permissao.php";
 require_once "../assets/php/cabecalho.php";
 
 if (!temPapel(['gestor'])) {
+    http_response_code(403);
     echo "Acesso negado.";
     exit;
 }
@@ -145,6 +146,7 @@ if (!temPapel(['gestor'])) {
               <span>Gerenciar Sensores</span>
             </a>
           </li>
+          <?php if (temPapel(['gestor'])): ?>
           <li class="nav-item">
             <a class="nav-link d-flex align-items-center gap-2 rounded px-3 active bg-primary text-white" href="adicionar-sensor.php" aria-current="page">
               <i class="bi bi-plus-circle"></i>
@@ -163,6 +165,7 @@ if (!temPapel(['gestor'])) {
               <span>Remover Sensor</span>
             </a>
           </li>
+          <?php endif; ?>
           <li class="nav-item mt-3 mb-1">
             <span class="text-uppercase small fw-semibold text-secondary px-3">Relatórios</span>
           </li>
@@ -301,6 +304,7 @@ if (!temPapel(['gestor'])) {
               <span>Gerenciar Sensores</span>
             </a>
           </li>
+          <?php if (temPapel(['gestor'])): ?>
           <li class="nav-item">
             <a class="nav-link d-flex align-items-center gap-2 rounded px-3 active bg-primary text-white" href="adicionar-sensor.php" aria-current="page">
               <i class="bi bi-plus-circle"></i>
@@ -319,6 +323,7 @@ if (!temPapel(['gestor'])) {
               <span>Remover Sensor</span>
             </a>
           </li>
+          <?php endif; ?>
           <li class="nav-item mt-3 mb-1">
             <span class="text-uppercase small fw-semibold text-secondary px-3">Relatórios</span>
           </li>

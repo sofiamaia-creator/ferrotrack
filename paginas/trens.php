@@ -4,7 +4,7 @@ require_once "../assets/php/proteger.php";
 require_once "../assets/php/permissao.php";
 require_once "../assets/php/cabecalho.php";
 
-if (!temPapel(['gestor', 'cliente'])) {
+if (!temPapel(['gestor'])) {
     echo "Acesso negado.";
     exit;
 }
