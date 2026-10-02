@@ -183,3 +183,35 @@ Para destruir a sessão com segurança, o arquivo `assets/php/sair.php` executa 
 
 ### Por que expirar o cookie de sessão? (Nível Avançado)
 A função `session_destroy()` exclui apenas o arquivo da sessão salvo no servidor. O navegador, porém, continua guardando o cookie (`PHPSESSID`) contendo a chave do usuário. Expirar esse cookie com `setcookie(..., time() - 42000)` apaga essa chave do computador do cliente, impedindo que o ID de sessão descartado continue em trânsito ou seja reutilizado.
+
+### Encerramento seguro da sessão
+
+O processo de logout foi implementado utilizando as funções `session_start()`, `session_unset()` e `session_destroy()`, garantindo que a sessão seja retomada, tenha suas variáveis removidas e seja destruída no servidor.
+
+Como medida adicional de segurança, foi implementada a expiração do cookie da sessão utilizando `setcookie()`, `session_name()` e `session_get_cookie_params()`.
+
+Essa medida é importante porque a destruição da sessão no servidor não remove automaticamente o cookie armazenado no navegador. Ao expirá-lo, reduzimos a possibilidade de reutilização de um identificador antigo de sessão.
+
+Por fim, o usuário é redirecionado para a página de login, e a execução do script é interrompida com `exit()`.
+
+## Entrega 3 — Gestão de trens
+
+### Modelagem da tabela
+
+A tabela `trens` foi atualizada para atender aos requisitos da Entrega 3, mantendo os campos anteriores para preservar os relacionamentos com as tabelas de rotas, cargas, sensores, maquinistas e gestores.
+
+Foram adicionados os campos prefixo, modelo, ano, status, capacidade e última inspeção, permitindo o cadastro e o gerenciamento das informações dos trens.
+
+### Decisões de modelagem
+
+**Restrição de unicidade do prefixo:** optamos por utilizar a restrição `UNIQUE` diretamente no banco de dados, impedindo que dois trens tenham o mesmo prefixo. Essa decisão garante a integridade dos dados mesmo quando uma tentativa de cadastro é realizada fora da interface do sistema.
+
+**Restrição dos valores de status:** optamos pelo tipo `ENUM`, limitando os valores a `Ativo`, `Em manutenção` e `Inativo`. Essa escolha evita inconsistências na escrita e facilita a filtragem dos trens conforme sua situação.
+
+**Capacidade:** utilizamos o tipo `DECIMAL(10,2)` para permitir o armazenamento de valores com duas casas decimais, representando a capacidade de carga em toneladas.
+
+**Última inspeção:** utilizamos o tipo `DATE`, permitindo armazenar a data da última inspeção. O campo aceita valores nulos para possibilitar o cadastro de trens que ainda não foram inspecionados.
+
+### Registros iniciais
+
+Foram inseridos três registros de exemplo com prefixos distintos, modelos, anos de fabricação, capacidades e datas de inspeção plausíveis, conforme as exigências do guia de uniformização.

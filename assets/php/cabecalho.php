@@ -20,11 +20,10 @@ function gerarCabecalho()
         echo '<a href="usuarios.php">Usuários</a>';
     }
 
-    echo '<a href="sair.php">Sair</a>
+    echo '<a href="../assets/php/sair.php">Sair</a>
 
         </nav>
 
     </header>';
 }
 ?>
-
