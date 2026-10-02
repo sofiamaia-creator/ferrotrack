@@ -171,3 +171,15 @@ O sistema possui três perfis de acesso:
 | `gestor` | Administrador/Gerente | Acesso completo ao sistema |
 | `maquinista` | Maquinista | Acesso às informações e sensores do trem que opera |
 | `cliente` | Usuário comum | Consulta informações públicas e recursos destinados ao cliente |
+
+## Entrega 2 — Encerramento de Sessão (Logout)
+
+Para destruir a sessão com segurança, o arquivo `assets/php/sair.php` executa os seguintes passos:
+1. `session_start()` para retomar a sessão ativa.
+2. `session_unset()` para limpar as variáveis guardadas.
+3. Remoção do cookie de sessão (`setcookie`) para forçar o navegador a descartar o identificador.
+4. `session_destroy()` para apagar o registro no servidor.
+5. Redirecionamento para o login com `header()` e encerramento com `exit()`.
+
+### Por que expirar o cookie de sessão? (Nível Avançado)
+A função `session_destroy()` exclui apenas o arquivo da sessão salvo no servidor. O navegador, porém, continua guardando o cookie (`PHPSESSID`) contendo a chave do usuário. Expirar esse cookie com `setcookie(..., time() - 42000)` apaga essa chave do computador do cliente, impedindo que o ID de sessão descartado continue em trânsito ou seja reutilizado.
