@@ -1,0 +1,83 @@
+/* CABEÇALHO */
+
+header {
+    width: 100%;
+    background-color: #1E3A8A;
+    color: white;
+    padding: 16px 35px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    box-sizing: border-box;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+}
+
+
+/* Usuário conectado */
+
+header span {
+    font-size: 15px;
+    font-weight: 500;
+}
+
+
+/* Menu */
+
+header nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+
+/* Links */
+
+header nav a {
+    color: white;
+    text-decoration: none;
+
+    padding: 9px 15px;
+    border-radius: 8px;
+
+    font-size: 14px;
+    font-weight: 500;
+
+    transition: 0.2s;
+}
+
+
+/* Quando passar o mouse */
+
+header nav a:hover {
+    background-color: #3B82F6;
+}
+
+
+/* Botão Sair */
+
+header nav a:last-child {
+    background-color: #DC2626;
+}
+
+header nav a:last-child:hover {
+    background-color: #B91C1C;
+}
+
+
+/* Responsividade */
+
+@media (max-width: 700px) {
+
+    header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+
+    header nav {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}

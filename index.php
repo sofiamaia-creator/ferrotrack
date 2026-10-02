@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['usuario_nome'] = $usuario['login'];
             $_SESSION['usuario_papel'] = $usuario['papel'];
 
-            header("Location: paginas/dashboard.html");
+            header("Location: paginas/dashboard.php");
             exit;
 
         } else {
@@ -181,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="mb-4 text-end">
 
                                 <a
-                                    href="paginas/recuperar-senha.html"
+                                    href="paginas/recuperar-senha.php"
                                     class="link-secondary small"
                                 >
                                     Esqueceu sua senha?

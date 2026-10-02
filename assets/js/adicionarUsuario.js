@@ -34,6 +34,6 @@ document.getElementById("btnSalvar").addEventListener("click", function () {
 
     alert("Usuário salvo com sucesso!");
 
-    window.location.href = "gerenciamentoUsuario.html";
+    window.location.href = "gerenciamentoUsuario.php";
 
 });

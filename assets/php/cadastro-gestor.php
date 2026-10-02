@@ -1,6 +1,14 @@
 <?php
 
 require_once "conexao.php";
+require_once "assets/php/cabecalho.php";
+require_once "../assets/php/proteger.php";
+require_once "../assets/php/permissao.php";
+
+if (!temPapel(['gestor'])) {
+    echo "Acesso negado.";
+    exit;
+}
 
 $erro = "";
 $sucesso = "";
@@ -260,6 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 
 <body class="bg-body-tertiary">
+<?php gerarCabecalho(); ?>
 
 <main class="container min-vh-100 d-flex align-items-center justify-content-center py-5">
 

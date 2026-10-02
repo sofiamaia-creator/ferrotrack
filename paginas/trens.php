@@ -1,22 +1,29 @@
 <?php
-require_once "../assets/php/proteger.php";
-require_once "../assets/php/cabecalho.php";
-?>
 
+require_once "../assets/php/proteger.php";
+require_once "../assets/php/permissao.php";
+require_once "../assets/php/cabecalho.php";
+
+if (!temPapel(['gestor', 'cliente'])) {
+    echo "Acesso negado.";
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Relatórios Operacionais — Ferrovias</title>
+    <title>Trens — Ferrovias</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../paginas/cabecalho.css">
 </head>
 
 <body class="bg-body-tertiary">
-
-    <!-- Barra superior: fixa em todas as telas -->
+<?php gerarCabecalho(); ?>
+    
     <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
       <div class="container-fluid gap-2">
 
@@ -26,7 +33,7 @@ require_once "../assets/php/cabecalho.php";
           <i class="bi bi-list fs-4"></i>
         </button>
 
-        <a class="navbar-brand d-flex align-items-center gap-2 me-auto" href="painel-gestor.html">
+        <a class="navbar-brand d-flex align-items-center gap-2 me-auto" href="painel-gestor.php">
           <img src="../assets/img/logo.png" alt="Ferrovias" width="32" height="32" class="object-fit-contain">
           <span class="fw-semibold">Ferrovias</span>
         </a>
@@ -46,7 +53,7 @@ require_once "../assets/php/cabecalho.php";
             <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
           </button>
           <div class="vr mx-2 d-none d-sm-block"></div>
-          <a class="btn btn-sm btn-outline-primary d-none d-sm-inline-flex align-items-center gap-1" href="perfil.html">
+          <a class="btn btn-sm btn-outline-primary d-none d-sm-inline-flex align-items-center gap-1" href="perfil.php">
             <i class="bi bi-person-circle"></i>
             <span class="d-none d-md-inline">Minha conta</span>
           </a>
@@ -58,7 +65,7 @@ require_once "../assets/php/cabecalho.php";
     <div class="container-fluid">
       <div class="row">
 
-        <!-- Menu lateral: fixo a partir de lg, gaveta no celular e no tablet -->
+        
         <aside class="col-lg-3 col-xl-2 d-none d-lg-block bg-white border-end vh-100 position-sticky top-0 p-0">
           <nav class="p-3 overflow-auto h-100">
             <ul class="nav nav-pills flex-column">
@@ -66,25 +73,25 @@ require_once "../assets/php/cabecalho.php";
             <span class="text-uppercase small fw-semibold text-secondary px-3">Painéis</span>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-gestor.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-gestor.php">
               <i class="bi bi-speedometer2"></i>
               <span>Painel do Gestor</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-maquinista.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-maquinista.php">
               <i class="bi bi-person-badge"></i>
               <span>Painel do Maquinista</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-cliente.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-cliente.php">
               <i class="bi bi-person"></i>
               <span>Painel do Cliente</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="dashboard.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="dashboard.php">
               <i class="bi bi-grid-1x2"></i>
               <span>Dashboard Geral</span>
             </a>
@@ -93,37 +100,37 @@ require_once "../assets/php/cabecalho.php";
             <span class="text-uppercase small fw-semibold text-secondary px-3">Operação</span>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gestao-rotas.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gestao-rotas.php">
               <i class="bi bi-signpost-split"></i>
               <span>Gestão de Rotas</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-rota.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-rota.php">
               <i class="bi bi-plus-square"></i>
               <span>Adicionar Rota</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="monitoramento-cargas.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="monitoramento-cargas.php">
               <i class="bi bi-box-seam"></i>
               <span>Monitoramento de Cargas</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 active bg-primary text-white" href="trens.php" aria-current="page">
               <i class="bi bi-train-front"></i>
               <span>Trens</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens-cadastrados.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens-cadastrados.php">
               <i class="bi bi-list-ul"></i>
               <span>Trens Cadastrados</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="alertas.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="alertas.php">
               <i class="bi bi-bell"></i>
               <span>Alertas e Notificações</span>
             </a>
@@ -132,25 +139,25 @@ require_once "../assets/php/cabecalho.php";
             <span class="text-uppercase small fw-semibold text-secondary px-3">Sensores</span>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="sensores.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="sensores.php">
               <i class="bi bi-cpu"></i>
               <span>Gerenciar Sensores</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-sensor.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-sensor.php">
               <i class="bi bi-plus-circle"></i>
               <span>Adicionar Sensor</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="editar-sensor.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="editar-sensor.php">
               <i class="bi bi-pencil"></i>
               <span>Editar Sensor</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="remover-sensor.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="remover-sensor.php">
               <i class="bi bi-dash-circle"></i>
               <span>Remover Sensor</span>
             </a>
@@ -159,34 +166,36 @@ require_once "../assets/php/cabecalho.php";
             <span class="text-uppercase small fw-semibold text-secondary px-3">Relatórios</span>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 active bg-primary text-white" href="relatorios.html" aria-current="page">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="relatorios.php">
               <i class="bi bi-file-earmark-bar-graph"></i>
               <span>Relatórios</span>
             </a>
           </li>
+          <?php if (temPapel(['gestor'])): ?>
           <li class="nav-item mt-3 mb-1">
             <span class="text-uppercase small fw-semibold text-secondary px-3">Usuários</span>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="usuarios.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="usuarios.php">
               <i class="bi bi-people"></i>
               <span>Status de Usuários</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gerenciamento-usuarios.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gerenciamento-usuarios.php">
               <i class="bi bi-person-gear"></i>
               <span>Gerenciar Usuários</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-usuario.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-usuario.php">
               <i class="bi bi-person-plus"></i>
               <span>Adicionar Usuário</span>
             </a>
           </li>
+          <?php endif; ?>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="perfil.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="perfil.php">
               <i class="bi bi-person-circle"></i>
               <span>Meu Perfil</span>
             </a>
@@ -195,13 +204,13 @@ require_once "../assets/php/cabecalho.php";
             <span class="text-uppercase small fw-semibold text-secondary px-3">Cliente</span>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="pagamento.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="pagamento.php">
               <i class="bi bi-credit-card"></i>
               <span>Pagamento</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="passagens.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="passagens.php">
               <i class="bi bi-ticket-perforated"></i>
               <span>Passagens</span>
             </a>
@@ -210,7 +219,7 @@ require_once "../assets/php/cabecalho.php";
           </nav>
         </aside>
 
-        <!-- Mesma navegação, em gaveta, para telas menores -->
+        
         <div class="offcanvas offcanvas-start d-lg-none" tabindex="-1" id="menuLateral" aria-labelledby="tituloMenu">
           <div class="offcanvas-header border-bottom">
             <h5 class="offcanvas-title" id="tituloMenu">Menu</h5>
@@ -222,25 +231,25 @@ require_once "../assets/php/cabecalho.php";
             <span class="text-uppercase small fw-semibold text-secondary px-3">Painéis</span>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-gestor.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-gestor.php">
               <i class="bi bi-speedometer2"></i>
               <span>Painel do Gestor</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-maquinista.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-maquinista.php">
               <i class="bi bi-person-badge"></i>
               <span>Painel do Maquinista</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-cliente.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-cliente.php">
               <i class="bi bi-person"></i>
               <span>Painel do Cliente</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="dashboard.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="dashboard.php">
               <i class="bi bi-grid-1x2"></i>
               <span>Dashboard Geral</span>
             </a>
@@ -249,37 +258,37 @@ require_once "../assets/php/cabecalho.php";
             <span class="text-uppercase small fw-semibold text-secondary px-3">Operação</span>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gestao-rotas.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gestao-rotas.php">
               <i class="bi bi-signpost-split"></i>
               <span>Gestão de Rotas</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-rota.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-rota.php">
               <i class="bi bi-plus-square"></i>
               <span>Adicionar Rota</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="monitoramento-cargas.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="monitoramento-cargas.php">
               <i class="bi bi-box-seam"></i>
               <span>Monitoramento de Cargas</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 active bg-primary text-white" href="trens.php" aria-current="page">
               <i class="bi bi-train-front"></i>
               <span>Trens</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens-cadastrados.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens-cadastrados.php">
               <i class="bi bi-list-ul"></i>
               <span>Trens Cadastrados</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="alertas.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="alertas.php">
               <i class="bi bi-bell"></i>
               <span>Alertas e Notificações</span>
             </a>
@@ -288,25 +297,25 @@ require_once "../assets/php/cabecalho.php";
             <span class="text-uppercase small fw-semibold text-secondary px-3">Sensores</span>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="sensores.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="sensores.php">
               <i class="bi bi-cpu"></i>
               <span>Gerenciar Sensores</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-sensor.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-sensor.php">
               <i class="bi bi-plus-circle"></i>
               <span>Adicionar Sensor</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="editar-sensor.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="editar-sensor.php">
               <i class="bi bi-pencil"></i>
               <span>Editar Sensor</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="remover-sensor.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="remover-sensor.php">
               <i class="bi bi-dash-circle"></i>
               <span>Remover Sensor</span>
             </a>
@@ -315,34 +324,36 @@ require_once "../assets/php/cabecalho.php";
             <span class="text-uppercase small fw-semibold text-secondary px-3">Relatórios</span>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 active bg-primary text-white" href="relatorios.html" aria-current="page">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="relatorios.php">
               <i class="bi bi-file-earmark-bar-graph"></i>
               <span>Relatórios</span>
             </a>
           </li>
+          <?php if (temPapel(['gestor'])): ?>
           <li class="nav-item mt-3 mb-1">
             <span class="text-uppercase small fw-semibold text-secondary px-3">Usuários</span>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="usuarios.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="usuarios.php">
               <i class="bi bi-people"></i>
               <span>Status de Usuários</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gerenciamento-usuarios.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gerenciamento-usuarios.php">
               <i class="bi bi-person-gear"></i>
               <span>Gerenciar Usuários</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-usuario.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-usuario.php">
               <i class="bi bi-person-plus"></i>
               <span>Adicionar Usuário</span>
             </a>
           </li>
+          <?php endif; ?>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="perfil.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="perfil.php">
               <i class="bi bi-person-circle"></i>
               <span>Meu Perfil</span>
             </a>
@@ -351,13 +362,13 @@ require_once "../assets/php/cabecalho.php";
             <span class="text-uppercase small fw-semibold text-secondary px-3">Cliente</span>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="pagamento.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="pagamento.php">
               <i class="bi bi-credit-card"></i>
               <span>Pagamento</span>
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="passagens.html">
+            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="passagens.php">
               <i class="bi bi-ticket-perforated"></i>
               <span>Passagens</span>
             </a>
@@ -366,85 +377,42 @@ require_once "../assets/php/cabecalho.php";
           </div>
         </div>
 
-        <!-- Conteúdo da página -->
+        
         <main class="col-12 col-lg-9 col-xl-10 py-4 px-3 px-md-4">
 
           <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
             <div class="d-flex align-items-center gap-2">
-              <a class="btn btn-outline-secondary btn-sm" href="relatorios.html" aria-label="Voltar">
-                <i class="bi bi-arrow-left"></i>
-              </a>
+              
               <div>
-                <h1 class="h3 mb-0">Relatórios Operacionais</h1>
-                
+                <h1 class="h3 mb-0">Trens</h1>
+                <p class="text-secondary mb-0 small">Escolha uma opção</p>
               </div>
             </div>
           </div>
 
           <div class="row g-3">
-
-            <div class="col-6 col-lg-3">
-              <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                  <p class="text-secondary small mb-1">Passagens</p>
-                  <p class="h2 mb-0">50</p>
+            <div class="col-12 col-md-6 col-xl-4">
+              <a class="card h-100 text-decoration-none border-0 shadow-sm" href="trens-cadastrados.php">
+                <div class="card-body d-flex align-items-center gap-3">
+                  <span class="d-inline-flex align-items-center justify-content-center bg-primary-subtle text-primary rounded-3 flex-shrink-0 p-3">
+                    <i class="bi bi-list-ul fs-4"></i>
+                  </span>
+                  <span class="flex-grow-1 fw-semibold text-body">Lista de trens cadastrados</span>
+                  <i class="bi bi-chevron-right text-secondary"></i>
                 </div>
-              </div>
+              </a>
             </div>
-
-            <div class="col-6 col-lg-3">
-              <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                  <p class="text-secondary small mb-1">Total de viagens do dia</p>
-                  <p class="h2 mb-0">305</p>
+            <div class="col-12 col-md-6 col-xl-4">
+              <a class="card h-100 text-decoration-none border-0 shadow-sm" href="trens-cadastrados.php">
+                <div class="card-body d-flex align-items-center gap-3">
+                  <span class="d-inline-flex align-items-center justify-content-center bg-primary-subtle text-primary rounded-3 flex-shrink-0 p-3">
+                    <i class="bi bi-info-circle fs-4"></i>
+                  </span>
+                  <span class="flex-grow-1 fw-semibold text-body">Lista de informações</span>
+                  <i class="bi bi-chevron-right text-secondary"></i>
                 </div>
-              </div>
+              </a>
             </div>
-
-            <div class="col-12 col-lg-6">
-              <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                  <p class="text-secondary small mb-1">Média de atraso</p>
-                  <p class="h4 mb-0">De 1 a 2 horas</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="col-12 col-md-6">
-              <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 pt-3">
-                  <h2 class="h5 mb-0">Horários do dia</h2>
-                </div>
-                <div class="card-body">
-                  <ul class="list-group list-group-flush">
-                    <li class="list-group-item px-0">08h30</li>
-                    <li class="list-group-item px-0">12h30</li>
-                    <li class="list-group-item px-0">15h00</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            <div class="col-12 col-md-6">
-              <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 pt-3">
-                  <h2 class="h5 mb-0">Trens atrasados</h2>
-                </div>
-                <div class="card-body">
-                  <ul class="list-group list-group-flush">
-                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
-                      Orient Express
-                      <span class="badge text-bg-warning">Atrasado</span>
-                    </li>
-                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
-                      Eurostar
-                      <span class="badge text-bg-warning">Atrasado</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
           </div>
 
         </main>

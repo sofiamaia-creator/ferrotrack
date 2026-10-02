@@ -1,9 +1,12 @@
+
 <?php
+
 require_once "permissao.php";
 
 function gerarCabecalho()
 {
     echo '<header>
+
         <span>
             Conectado como ' . htmlspecialchars($_SESSION["usuario_nome"]) . '
             (' . htmlspecialchars($_SESSION["usuario_papel"]) . ')
@@ -18,6 +21,10 @@ function gerarCabecalho()
     }
 
     echo '<a href="sair.php">Sair</a>
+
         </nav>
+
     </header>';
 }
+?>
+

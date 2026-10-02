@@ -1,6 +1,13 @@
-<<?php
+<?php
+
 require_once "../assets/php/proteger.php";
+require_once "../assets/php/permissao.php";
 require_once "../assets/php/cabecalho.php";
+
+if (!temPapel(['gestor', 'maquinista', 'cliente'])) {
+    echo "Acesso negado.";
+    exit;
+}
 ?>
 
 <!DOCTYPE html>
@@ -12,10 +19,11 @@ require_once "../assets/php/cabecalho.php";
     <title>Recuperar senha — Ferrovias</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../paginas/cabecalho.css">
 </head>
 
 <body class="bg-body-tertiary">
-
+<?php gerarCabecalho(); ?>
     <main class="container min-vh-100 d-flex align-items-center justify-content-center py-5">
       <div class="row justify-content-center w-100">
         <div class="col-md-8 col-lg-6 col-xl-5">
@@ -50,7 +58,7 @@ require_once "../assets/php/cabecalho.php";
               <hr class="my-4">
 
               <p class="text-center mb-0 small">
-                <a href="../index.html">Voltar para o login</a>
+                <a href="../index.php">Voltar para o login</a>
               </p>
 
             </div>

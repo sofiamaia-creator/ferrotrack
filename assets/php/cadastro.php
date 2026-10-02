@@ -1,6 +1,14 @@
 <?php
 
 require_once "conexao.php";
+require_once "../assets/php/proteger.php";
+require_once "../assets/php/permissao.php";
+require_once "../assets/php/cabecalho.php";
+
+if (!temPapel(['maquinista', 'cliente'])) {
+    echo "Acesso negado.";
+    exit;
+}
 
 $erro = "";
 $sucesso = "";
