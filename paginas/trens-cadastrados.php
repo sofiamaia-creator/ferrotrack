@@ -3,7 +3,7 @@
 require_once "../assets/php/proteger.php";
 require_once "../assets/php/permissao.php";
 require_once "../assets/php/cabecalho.php";
-require_once "../conexao.php";
+require_once "../assets/php/conexao.php";
 
 if (!temPapel(['gestor'])) {
     echo "Acesso negado.";

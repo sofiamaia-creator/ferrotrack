@@ -1,14 +1,11 @@
 <?php
 
-require_once "conexao.php";
-require_once "../assets/php/proteger.php";
-require_once "../assets/php/permissao.php";
-require_once "../assets/php/cabecalho.php";
+session_start();
 
-if (!temPapel(['maquinista', 'cliente'])) {
-    echo "Acesso negado.";
-    exit;
-}
+$_SESSION['pagina_atual'] = basename($_SERVER['PHP_SELF']);
+
+require_once "conexao.php";
+require_once "proteger.php";
 
 $erro = "";
 $sucesso = "";

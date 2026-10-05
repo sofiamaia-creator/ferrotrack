@@ -3,11 +3,90 @@
 require_once "../assets/php/proteger.php";
 require_once "../assets/php/permissao.php";
 require_once "../assets/php/cabecalho.php";
+require_once "../assets/php/conexao.php";
 
+$sqlTrens = "SELECT id_trem, prefixo, modelo FROM trens ORDER BY prefixo";
+$trens = $conexao->query($sqlTrens);
 if (!temPapel(['gestor'])) {
     http_response_code(403);
     echo "Acesso negado.";
     exit;
+}
+
+$mensagem = "";
+$erro = "";
+
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+
+    $id_trem = $_POST["id_trem"] ?? "";
+    $codigo = trim($_POST["codigo"] ?? "");
+    $tipo = $_POST["tipo"] ?? "";
+    $localizacao = $_POST["localizacao"] ?? "";
+    $segmento = trim($_POST["segmento"] ?? "");
+    $ultima_leitura = $_POST["ultima_leitura"] ?? "";
+
+    if (
+        empty($id_trem) ||
+        empty($codigo) ||
+        empty($tipo) ||
+        empty($ultima_leitura)
+    ) {
+        $erro = "Preencha todos os campos obrigatórios.";
+    } else {
+
+        // Confere no banco se o trem realmente existe
+        $sqlVerifica = "SELECT id_trem FROM trens WHERE id_trem = ?";
+
+        $stmtVerifica = $conexao->prepare($sqlVerifica);
+
+        if ($stmtVerifica) {
+
+            $stmtVerifica->bind_param("i", $id_trem);
+            $stmtVerifica->execute();
+
+            $resultado = $stmtVerifica->get_result();
+
+            if ($resultado->num_rows === 0) {
+                $erro = "O trem selecionado não existe.";
+            } else {
+
+                $sql = "INSERT INTO sensores
+                        (id_trem, codigo, tipo, localizacao, segmento, ultima_leitura)
+                        VALUES (?, ?, ?, ?, ?, ?)";
+
+                $stmt = $conexao->prepare($sql);
+
+                if ($stmt) {
+
+                    $stmt->bind_param(
+                        "isssss",
+                        $id_trem,
+                        $codigo,
+                        $tipo,
+                        $localizacao,
+                        $segmento,
+                        $ultima_leitura
+                    );
+
+                    if ($stmt->execute()) {
+                        $mensagem = "Sensor cadastrado com sucesso!";
+                    } else {
+                        $erro = "Erro ao cadastrar o sensor: " . $stmt->error;
+                    }
+
+                    $stmt->close();
+
+                } else {
+                    $erro = "Erro ao preparar o cadastro: " . $conexao->error;
+                }
+            }
+
+            $stmtVerifica->close();
+
+        } else {
+            $erro = "Erro ao verificar o trem: " . $conexao->error;
+        }
+    }
 }
 ?>
 
@@ -379,7 +458,7 @@ if (!temPapel(['gestor'])) {
           </div>
         </div>
 
-        <!-- Conteúdo da página -->
+        
         <main class="col-12 col-lg-9 col-xl-10 py-4 px-3 px-md-4">
 
           <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
@@ -401,43 +480,132 @@ if (!temPapel(['gestor'])) {
                   <h2 class="h5 mb-0">Informações</h2>
                 </div>
                 <div class="card-body p-4">
+                  <?php if ($mensagem): ?>
+    <div class="alert alert-success">
+        <?= htmlspecialchars($mensagem) ?>
+    </div>
+<?php endif; ?>
 
-                  <form>
+<?php if ($erro): ?>
+    <div class="alert alert-danger">
+        <?= htmlspecialchars($erro) ?>
+    </div>
+<?php endif; ?>
 
-                    <div class="mb-3">
-                      <label for="nomeSensor" class="form-label">Selecione o tipo de sensor</label>
-                      <select class="form-select" name="nomeSensor" id="nomeSensor">
-                        <option value="sensor1">Sensor - KY-037</option>
-                        <option value="sensor2">Sensor - KY-038</option>
-                        <option value="sensor3">Sensor - KY-039</option>
-                      </select>
-                    </div>
+                 <form method="POST">
 
-                    <div class="mb-3">
-                      <label for="local" class="form-label">Selecione o local do sensor</label>
-                      <select class="form-select" name="local" id="local">
-                        <option value="localsensor1">Trilho 1</option>
-                        <option value="localsensor2">Trilho 2</option>
-                        <option value="localsensor3">Trilho 3</option>
-                      </select>
-                    </div>
+    <div class="mb-3">
+        <label for="id_trem" class="form-label">
+            Selecione o trem
+        </label>
 
-                    <div class="mb-3">
-                      <label for="dataAdicao" class="form-label">Selecione a data de adição</label>
-                      <input type="date" class="form-control" id="dataAdicao">
-                    </div>
+        <select class="form-select" name="id_trem" id="id_trem" required>
+          <option value="">Selecione o trem</option>
 
-                    <div class="mb-4">
-                      <label for="procedimento" class="form-label">Descreva o procedimento</label>
-                      <textarea class="form-control" id="procedimento" name="procedimento" rows="4"></textarea>
-                    </div>
+            <?php while ($trem = $trens->fetch_assoc()): ?>
 
-                    <div class="d-flex flex-column flex-sm-row gap-2">
-                      <button type="submit" class="btn btn-primary flex-fill">Adicionar sensor</button>
-                      <a href="sensores.php" class="btn btn-outline-secondary flex-fill">Cancelar</a>
-                    </div>
+            <option value="<?= $trem['id_trem'] ?>">
+            <?= htmlspecialchars($trem['prefixo']) ?> —
+            <?= htmlspecialchars($trem['modelo']) ?>
+          </option>
 
-                  </form>
+    <?php endwhile; ?>
+
+</select>
+    </div>
+
+
+    <div class="mb-3">
+        <label for="codigo" class="form-label">
+            Código do sensor
+        </label>
+
+        <input
+            type="text"
+            class="form-control"
+            name="codigo"
+            id="codigo"
+            placeholder="Ex: S-TEMP-001"
+            maxlength="20"
+            required
+        >
+    </div>
+
+
+    <div class="mb-3">
+        <label for="tipo" class="form-label">
+            Tipo de sensor
+        </label>
+
+        <select class="form-select" name="tipo" id="tipo" required>
+            <option value="">Selecione o tipo</option>
+            <option value="Velocidade">Velocidade</option>
+            <option value="Temperatura">Temperatura</option>
+            <option value="Consumo de energia">Consumo de energia</option>
+            <option value="Localização">Localização</option>
+        </select>
+    </div>
+
+
+    <div class="mb-3">
+        <label for="localizacao" class="form-label">
+            Localização
+        </label>
+
+        <select class="form-select" name="localizacao" id="localizacao">
+            <option value="">Selecione a localização</option>
+            <option value="Motor">Motor</option>
+            <option value="Eixo dianteiro">Eixo dianteiro</option>
+            <option value="Cabine">Cabine</option>
+        </select>
+    </div>
+
+
+    <div class="mb-3">
+        <label for="segmento" class="form-label">
+            Segmento
+        </label>
+
+        <input
+            type="text"
+            class="form-control"
+            name="segmento"
+            id="segmento"
+            placeholder="Ex: Trecho Norte"
+            maxlength="80"
+        >
+    </div>
+
+
+    <div class="mb-4">
+        <label for="ultima_leitura" class="form-label">
+            Última leitura
+        </label>
+
+        <select
+            class="form-select"
+            name="ultima_leitura"
+            id="ultima_leitura"
+            required
+        >
+            <option value="Normal">Normal</option>
+            <option value="Atenção">Atenção</option>
+            <option value="Crítico">Crítico</option>
+        </select>
+    </div>
+
+
+    <div class="d-flex flex-column flex-sm-row gap-2">
+        <button type="submit" class="btn btn-primary flex-fill">
+            Adicionar sensor
+        </button>
+
+        <a href="sensores.php" class="btn btn-outline-secondary flex-fill">
+            Cancelar
+        </a>
+    </div>
+
+</form>
 
                 </div>
               </div>

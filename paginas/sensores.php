@@ -8,6 +8,33 @@ if (!temPapel(['gestor', 'maquinista'])) {
     echo "Acesso negado.";
     exit;
 }
+
+require_once "../assets/php/conexao.php";
+
+$tipoFiltro = $_GET['tipo'] ?? '';
+
+$sql = "SELECT sensores.*, trens.prefixo, trens.modelo
+        FROM sensores
+        INNER JOIN trens ON trens.id_trem = sensores.id_trem";
+
+if ($tipoFiltro !== '') {
+    $sql .= " WHERE sensores.tipo = ?";
+}
+
+$sql .= " ORDER BY trens.prefixo, sensores.codigo";
+
+$stmt = $conexao->prepare($sql);
+
+if ($tipoFiltro !== '') {
+    $stmt->bind_param("s", $tipoFiltro);
+}
+
+$stmt->execute();
+$sensores = $stmt->get_result();
+
+$tipos = $conexao->query(
+    "SELECT DISTINCT tipo FROM sensores ORDER BY tipo"
+);
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -405,50 +432,112 @@ if (!temPapel(['gestor', 'maquinista'])) {
             <div class="col-12">
               <div class="card border-0 shadow-sm">
                 <div class="card-body">
+
+                  <form method="GET" class="row g-2 align-items-end mb-4">
+                    <div class="col-12 col-md-6 col-lg-4">
+                      <label for="tipo" class="form-label">Filtrar por tipo</label>
+                      <select class="form-select" name="tipo" id="tipo">
+                        <option value="">Todos os tipos</option>
+
+                        <?php while ($tipo = $tipos->fetch_assoc()): ?>
+                          <option
+                            value="<?= htmlspecialchars($tipo['tipo']) ?>"
+                            <?= $tipoFiltro === $tipo['tipo'] ? 'selected' : '' ?>
+                          >
+                            <?= htmlspecialchars($tipo['tipo']) ?>
+                          </option>
+                        <?php endwhile; ?>
+
+                      </select>
+                    </div>
+
+                    <div class="col-12 col-md-auto">
+                      <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-funnel me-1"></i>Filtrar
+                      </button>
+                    </div>
+
+                    <?php if ($tipoFiltro !== ''): ?>
+                      <div class="col-12 col-md-auto">
+                        <a href="sensores.php" class="btn btn-outline-secondary">
+                          Limpar filtro
+                        </a>
+                      </div>
+                    <?php endif; ?>
+                  </form>
+
                   <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                       <thead class="table-light">
                         <tr>
-                          <th scope="col">Sensor</th>
+                          <th scope="col">Código</th>
+                          <th scope="col">Trem</th>
                           <th scope="col">Tipo</th>
-                          <th scope="col">Local</th>
-                          <th scope="col">Data de adição</th>
+                          <th scope="col">Localização</th>
+                          <th scope="col">Segmento</th>
+                          <th scope="col">Última leitura</th>
                         </tr>
                       </thead>
+
                       <tbody>
-                        <tr>
-                          <td class="fw-semibold">Sensor 001</td>
-                          <td>KY-037</td>
-                          <td>Trilho 1</td>
-                          <td>30/06/2026</td>
-                        </tr>
-                        <tr>
-                          <td class="fw-semibold">Sensor 002</td>
-                          <td>KY-038</td>
-                          <td>Trilho 2</td>
-                          <td>01/07/2026</td>
-                        </tr>
-                        <tr>
-                          <td class="fw-semibold">Sensor 003</td>
-                          <td>KY-039</td>
-                          <td>Trilho 3</td>
-                          <td>02/07/2026</td>
-                        </tr>
-                        <tr>
-                          <td class="fw-semibold">Sensor 004</td>
-                          <td>KY-037</td>
-                          <td>Estação Central</td>
-                          <td>03/07/2026</td>
-                        </tr>
-                        <tr>
-                          <td class="fw-semibold">Sensor 005</td>
-                          <td>KY-038</td>
-                          <td>Pátio Ferroviário</td>
-                          <td>04/07/2026</td>
-                        </tr>
+                        <?php if ($sensores->num_rows > 0): ?>
+
+                          <?php while ($sensor = $sensores->fetch_assoc()): ?>
+
+                            <?php
+                              $classeLeitura = match ($sensor['ultima_leitura']) {
+                                  'Normal' => 'bg-success-subtle text-success-emphasis',
+                                  'Atenção' => 'bg-warning-subtle text-warning-emphasis',
+                                  'Crítico' => 'bg-danger-subtle text-danger-emphasis',
+                                  default => 'bg-secondary-subtle text-secondary-emphasis'
+                              };
+                            ?>
+
+                            <tr>
+                              <td class="fw-semibold">
+                                <?= htmlspecialchars($sensor['codigo']) ?>
+                              </td>
+
+                              <td>
+                                <?= htmlspecialchars($sensor['prefixo']) ?>
+                                —
+                                <?= htmlspecialchars($sensor['modelo']) ?>
+                              </td>
+
+                              <td>
+                                <?= htmlspecialchars($sensor['tipo']) ?>
+                              </td>
+
+                              <td>
+                                <?= htmlspecialchars($sensor['localizacao'] ?? '') ?>
+                              </td>
+
+                              <td>
+                                <?= htmlspecialchars($sensor['segmento'] ?? '') ?>
+                              </td>
+
+                              <td>
+                                <span class="badge <?= $classeLeitura ?>">
+                                  <?= htmlspecialchars($sensor['ultima_leitura']) ?>
+                                </span>
+                              </td>
+                            </tr>
+
+                          <?php endwhile; ?>
+
+                        <?php else: ?>
+
+                          <tr>
+                            <td colspan="6" class="text-center text-secondary py-4">
+                              Nenhum sensor encontrado.
+                            </td>
+                          </tr>
+
+                        <?php endif; ?>
                       </tbody>
                     </table>
                   </div>
+
                 </div>
               </div>
             </div>
@@ -459,6 +548,10 @@ if (!temPapel(['gestor', 'maquinista'])) {
 
       </div>
     </div>
+
+    <?php
+    $stmt->close();
+    ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 </body>
