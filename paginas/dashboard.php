@@ -41,16 +41,8 @@ if (!temPapel(['gestor', 'maquinista', 'cliente'])) {
       </a>
 
       <div class="d-flex align-items-center gap-1">
-        <button class="btn btn-sm btn-outline-secondary border-0" type="button" title="Acessibilidade" aria-label="Acessibilidade">
-          <i class="bi bi-universal-access fs-5"></i>
-        </button>
-        <button class="btn btn-sm btn-outline-secondary border-0" type="button" title="Configurações" aria-label="Configurações">
-          <i class="bi bi-gear fs-5"></i>
-        </button>
-        <button class="btn btn-sm btn-outline-secondary border-0" type="button" title="Modo escuro" aria-label="Modo escuro">
-          <i class="bi bi-moon-fill fs-5"></i>
-        </button>
-        <button class="btn btn-sm btn-outline-secondary border-0 position-relative" type="button" title="Notificações" aria-label="Notificações">
+
+        <button class="btn btn-sm btn-outline-secondary border-0 position-relative" type="button" title="Notificações" aria-label="Notificações" onclick="window.location.href='alertas.php'">
           <i class="bi bi-bell fs-5"></i>
           <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
         </button>
@@ -107,12 +99,14 @@ if (!temPapel(['gestor', 'maquinista', 'cliente'])) {
                 <span>Gestão de Rotas</span>
               </a>
             </li>
-            <li class="nav-item">
-              <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-rota.php">
-                <i class="bi bi-plus-square"></i>
-                <span>Adicionar Rota</span>
-              </a>
-            </li>
+            <?php if ($_SESSION['usuario_papel'] === 'gestor'): ?>
+              <li class="nav-item">
+                <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-rota.php">
+                  <i class="bi bi-plus-square"></i>
+                  <span>Adicionar Rota</span>
+                </a>
+              </li>
+            <?php endif; ?>
             <li class="nav-item">
               <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="monitoramento-cargas.php">
                 <i class="bi bi-box-seam"></i>
