@@ -40,15 +40,6 @@ if (!temPapel(['gestor'])) {
         </a>
 
         <div class="d-flex align-items-center gap-1">
-          <button class="btn btn-sm btn-outline-secondary border-0" type="button" title="Acessibilidade" aria-label="Acessibilidade">
-            <i class="bi bi-universal-access fs-5"></i>
-          </button>
-          <button class="btn btn-sm btn-outline-secondary border-0" type="button" title="Configurações" aria-label="Configurações">
-            <i class="bi bi-gear fs-5"></i>
-          </button>
-          <button class="btn btn-sm btn-outline-secondary border-0" type="button" title="Modo escuro" aria-label="Modo escuro">
-            <i class="bi bi-moon-fill fs-5"></i>
-          </button>
           <button class="btn btn-sm btn-outline-secondary border-0 position-relative" type="button" title="Notificações" aria-label="Notificações" onclick="window.location.href='alertas.php'">
             <i class="bi bi-bell fs-5"></i>
             <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
