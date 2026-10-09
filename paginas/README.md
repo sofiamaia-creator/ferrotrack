@@ -215,3 +215,10 @@ Foram adicionados os campos prefixo, modelo, ano, status, capacidade e última i
 ### Registros iniciais
 
 Foram inseridos três registros de exemplo com prefixos distintos, modelos, anos de fabricação, capacidades e datas de inspeção plausíveis, conforme as exigências do guia de uniformização.
+
+## Alertas e Notificações
+A equipe optou por concentrar tudo na tabela alertas. O alerta é o fato detectado pela leitura; a “notificação” exibida na tela é a própria listagem de alertas pendentes, sem tabela separada de entregas. O vínculo alertas.id_leitura → leituras → sensores → trens informa qual sensor e qual trem originaram cada alerta. As colunas tipo_sensor, valor_lido, valor_limite e status foram acrescentadas para exibir o valor medido, o limite violado e a situação do alerta.
+
+## Limites.php
+A função classificar($tipo, $valor) está em includes/limites.php e compara o valor com o limite do tipo, lido da tabela limites. Até o limite é normal; até 10% acima é atencao; acima disso é critico. A função devolve os identificadores sem acento, como no guia, e o alerta é gravado no banco com os valores do guia de design (atenção, crítico). O alerta é gravado logo depois da leitura, na mesma transação.
+

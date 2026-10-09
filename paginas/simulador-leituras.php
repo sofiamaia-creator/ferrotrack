@@ -1,4 +1,3 @@
-
 <?php
 
 require_once "../assets/php/proteger.php";
@@ -60,7 +59,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $unidade = "°C";
 
                     if ($fora_limite) {
-                        $minimo = 110;
+                        $minimo = 101;
                         $maximo = 130;
                     } else {
                         $minimo = 60;
@@ -72,7 +71,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $unidade = "km/h";
 
                     if ($fora_limite) {
-                        $minimo = 120;
+                        $minimo = 111;
                         $maximo = 160;
                     } else {
                         $minimo = 40;
@@ -87,7 +86,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $unidade = "bar";
 
                     if ($fora_limite) {
-                        $minimo = 8;
+                        $minimo = 7.25;
                         $maximo = 12;
                     } else {
                         $minimo = 2;
@@ -336,7 +335,7 @@ $sensores = $conexao->query(
                         class="form-check-label"
                         for="fora_limite"
                     >
-                        Gerar valores fora do limite normal
+                        Gerar valores acima do limite (atenção e crítico)
                     </label>
 
                 </div>
