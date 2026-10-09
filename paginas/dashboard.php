@@ -87,13 +87,13 @@ if (!temPapel(['gestor', 'maquinista', 'cliente'])) {
       }
     }
   </style>
-  ```
+  
 
 </head>
 
 <body class="bg-body-tertiary">
 
-  ```
+  
   <?php gerarCabecalho(); ?>
 
   <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
@@ -275,7 +275,7 @@ if (!temPapel(['gestor', 'maquinista', 'cliente'])) {
                 </div>
 
                 <img
-                  src="../assets/img/clima.png"
+                  src="../assets/img/sol.png"
                   alt="Condição do tempo"
                   width="96"
                   height="96"
@@ -307,7 +307,7 @@ if (!temPapel(['gestor', 'maquinista', 'cliente'])) {
               href="relatorios.php">
               <div class="card-body text-center">
                 <img
-                  src="../assets/img/documento.png"
+                  src="../assets/img/documentacao.png"
                   alt=""
                   width="64"
                   height="64"

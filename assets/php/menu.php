@@ -50,7 +50,7 @@ function renderizarMenu()
 
 ?>
 
-    ```
+    
     <aside class="col-lg-3 col-xl-2 d-none d-lg-block bg-white border-end vh-100 position-sticky top-0 p-0">
         <nav class="p-3 overflow-auto h-100">
             <ul class="nav nav-pills flex-column">
