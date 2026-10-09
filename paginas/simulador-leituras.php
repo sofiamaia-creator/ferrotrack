@@ -1,11 +1,14 @@
+
 <?php
 
 require_once "../assets/php/proteger.php";
 require_once "../assets/php/permissao.php";
 require_once "../assets/php/conexao.php";
 require_once "../assets/php/cabecalho.php";
+require_once "../assets/php/verificar-alerta.php";
 
 if (!temPapel(['gestor', 'maquinista'])) {
+    http_response_code(403);
     echo "Acesso negado.";
     exit;
 }
@@ -31,109 +34,149 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         $sql_sensor = "SELECT tipo FROM sensores WHERE id_sensor = ?";
         $stmt_sensor = $conexao->prepare($sql_sensor);
-        $stmt_sensor->bind_param("i", $id_sensor);
-        $stmt_sensor->execute();
 
-        $resultado_sensor = $stmt_sensor->get_result();
-        $sensor = $resultado_sensor->fetch_assoc();
-
-        $stmt_sensor->close();
-
-        if (!$sensor) {
-
-            $erro = "Sensor não encontrado.";
-
+        if (!$stmt_sensor) {
+            $erro = "Erro ao consultar sensor: " . $conexao->error;
         } else {
 
-            $tipo = strtolower($sensor['tipo']);
+            $stmt_sensor->bind_param("i", $id_sensor);
+            $stmt_sensor->execute();
 
-            if (strpos($tipo, 'temperatura') !== false) {
+            $resultado_sensor = $stmt_sensor->get_result();
+            $sensor = $resultado_sensor->fetch_assoc();
 
-                $unidade = "°C";
+            $stmt_sensor->close();
 
-                if ($fora_limite) {
-                    $minimo = 110;
-                    $maximo = 130;
-                } else {
-                    $minimo = 60;
-                    $maximo = 90;
-                }
+            if (!$sensor) {
 
-            } elseif (strpos($tipo, 'velocidade') !== false) {
-
-                $unidade = "km/h";
-
-                if ($fora_limite) {
-                    $minimo = 120;
-                    $maximo = 160;
-                } else {
-                    $minimo = 40;
-                    $maximo = 100;
-                }
-
-            } elseif (strpos($tipo, 'pressão') !== false || strpos($tipo, 'pressao') !== false) {
-
-                $unidade = "bar";
-
-                if ($fora_limite) {
-                    $minimo = 8;
-                    $maximo = 12;
-                } else {
-                    $minimo = 2;
-                    $maximo = 6;
-                }
+                $erro = "Sensor não encontrado.";
 
             } else {
 
-                $unidade = "un";
+                $tipo = strtolower($sensor['tipo']);
 
-                if ($fora_limite) {
-                    $minimo = 101;
-                    $maximo = 150;
+                if (strpos($tipo, 'temperatura') !== false) {
+
+                    $unidade = "°C";
+
+                    if ($fora_limite) {
+                        $minimo = 110;
+                        $maximo = 130;
+                    } else {
+                        $minimo = 60;
+                        $maximo = 90;
+                    }
+
+                } elseif (strpos($tipo, 'velocidade') !== false) {
+
+                    $unidade = "km/h";
+
+                    if ($fora_limite) {
+                        $minimo = 120;
+                        $maximo = 160;
+                    } else {
+                        $minimo = 40;
+                        $maximo = 100;
+                    }
+
+                } elseif (
+                    strpos($tipo, 'pressão') !== false ||
+                    strpos($tipo, 'pressao') !== false
+                ) {
+
+                    $unidade = "bar";
+
+                    if ($fora_limite) {
+                        $minimo = 8;
+                        $maximo = 12;
+                    } else {
+                        $minimo = 2;
+                        $maximo = 6;
+                    }
+
                 } else {
-                    $minimo = 20;
-                    $maximo = 80;
-                }
-            }
 
-            $stmt = $conexao->prepare(
-                "INSERT INTO leituras
-                (id_sensor, data_hora, valor, unidade)
-                VALUES (?, ?, ?, ?)"
-            );
+                    $unidade = "un";
 
-            if (!$stmt) {
-
-                $erro = "Erro ao preparar o cadastro: " . $conexao->error;
-
-            } else {
-
-                for ($i = 0; $i < $quantidade; $i++) {
-
-                    $data_hora = date(
-                        'Y-m-d H:i:s',
-                        time() - ($i * 300)
-                    );
-
-                    $valor = mt_rand(
-                        $minimo * 100,
-                        $maximo * 100
-                    ) / 100;
-
-                    $stmt->bind_param(
-                        "isds",
-                        $id_sensor,
-                        $data_hora,
-                        $valor,
-                        $unidade
-                    );
-
-                    $stmt->execute();
+                    if ($fora_limite) {
+                        $minimo = 101;
+                        $maximo = 150;
+                    } else {
+                        $minimo = 20;
+                        $maximo = 80;
+                    }
                 }
 
-                $stmt->close();
+                $stmt = $conexao->prepare(
+                    "INSERT INTO leituras
+                    (id_sensor, data_hora, valor, unidade)
+                    VALUES (?, ?, ?, ?)"
+                );
 
-                $mensagem = "$quantidade leituras geradas com sucesso!";
+                if (!$stmt) {
+
+                    $erro = "Erro ao preparar o cadastro: " . $conexao->error;
+
+                } else {
+
+                    $conexao->begin_transaction();
+
+                    try {
+
+                        for ($i = 0; $i < $quantidade; $i++) {
+
+                            $data_hora = date(
+                                'Y-m-d H:i:s',
+                                time() - ($i * 300)
+                            );
+
+                            $valor = mt_rand(
+                                $minimo * 100,
+                                $maximo * 100
+                            ) / 100;
+
+                            $stmt->bind_param(
+                                "isds",
+                                $id_sensor,
+                                $data_hora,
+                                $valor,
+                                $unidade
+                            );
+
+                            if (!$stmt->execute()) {
+                                throw new Exception(
+                                    "Erro ao cadastrar leitura: " . $stmt->error
+                                );
+                            }
+
+                            $id_leitura = $stmt->insert_id;
+
+                            if (!$id_leitura) {
+                                throw new Exception(
+                                    "Não foi possível obter o ID da leitura."
+                                );
+                            }
+
+                            verificarAlerta(
+                                $conexao,
+                                $id_leitura,
+                                $sensor['tipo'],
+                                $valor
+                            );
+                        }
+
+                        $conexao->commit();
+                        $mensagem = "$quantidade leituras geradas com sucesso!";
+
+                    } catch (Throwable $e) {
+
+                        $conexao->rollback();
+                        $erro = "Erro ao gerar leituras: " . $e->getMessage();
+
+                    }
+
+                    $stmt->close();
+                }
             }
         }
     }
@@ -302,10 +345,8 @@ $sensores = $conexao->query(
                     type="submit"
                     class="btn btn-primary"
                 >
-
                     <i class="bi bi-play-circle me-1"></i>
                     Gerar leituras
-
                 </button>
 
                 <a
@@ -323,9 +364,7 @@ $sensores = $conexao->query(
 
 </div>
 
-<script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js">
-</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
 

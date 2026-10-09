@@ -4,7 +4,7 @@ $servidor = "localhost";
 $usuario = "root";
 $senha = "";
 $banco = "sa_ferrorama";
-$porta = '3306';
+$porta = '3307';
 
 $conexao = new mysqli(
     $servidor,
