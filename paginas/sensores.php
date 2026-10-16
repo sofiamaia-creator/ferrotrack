@@ -66,15 +66,7 @@ $tipos = $conexao->query(
         </a>
 
         <div class="d-flex align-items-center gap-1">
-          <button class="btn btn-sm btn-outline-secondary border-0" type="button" title="Acessibilidade" aria-label="Acessibilidade">
-            <i class="bi bi-universal-access fs-5"></i>
-          </button>
-          <button class="btn btn-sm btn-outline-secondary border-0" type="button" title="Configurações" aria-label="Configurações">
-            <i class="bi bi-gear fs-5"></i>
-          </button>
-          <button class="btn btn-sm btn-outline-secondary border-0" type="button" title="Modo escuro" aria-label="Modo escuro">
-            <i class="bi bi-moon-fill fs-5"></i>
-          </button>
+          
           <button class="btn btn-sm btn-outline-secondary border-0 position-relative" type="button" title="Notificações" aria-label="Notificações" onclick="window.location.href='alertas.php'">
             <i class="bi bi-bell fs-5"></i>
             <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
@@ -92,7 +84,7 @@ $tipos = $conexao->query(
     <div class="container-fluid">
       <div class="row">
 
-        <!-- Menu lateral: fixo a partir de lg, gaveta no celular e no tablet -->
+        
         <aside class="col-lg-3 col-xl-2 d-none d-lg-block bg-white border-end vh-100 position-sticky top-0 p-0">
           <nav class="p-3 overflow-auto h-100">
             <ul class="nav nav-pills flex-column">
@@ -244,7 +236,7 @@ $tipos = $conexao->query(
           </nav>
         </aside>
 
-        <!-- Mesma navegação, em gaveta, para telas menores -->
+        
         <div class="offcanvas offcanvas-start d-lg-none" tabindex="-1" id="menuLateral" aria-labelledby="tituloMenu">
           <div class="offcanvas-header border-bottom">
             <h5 class="offcanvas-title" id="tituloMenu">Menu</h5>
