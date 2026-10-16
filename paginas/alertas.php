@@ -11,20 +11,39 @@ if (!temPapel(['gestor', 'maquinista', 'cliente'])) {
     exit("Acesso negado.");
 }
 
-// Pesquisa de alertas
 $busca = trim($_GET['busca'] ?? '');
+
+$sql = "SELECT
+            a.id_alerta,
+            a.id_leitura,
+            a.tipo_sensor,
+            a.valor_lido,
+            a.valor_limite,
+            a.mensagem,
+            a.data_hora,
+            a.status,
+            a.tipo,
+            a.severidade,
+            s.codigo AS codigo_sensor,
+            s.tipo AS tipo_do_sensor,
+            t.nome_trem,
+            t.prefixo
+        FROM alertas a
+        INNER JOIN leituras l ON a.id_leitura = l.id_leitura
+        INNER JOIN sensores s ON l.id_sensor = s.id_sensor
+        INNER JOIN trens t ON s.id_trem = t.id_trem";
 
 if ($busca !== '') {
     $termo = "%" . $busca . "%";
 
-    $sql = "SELECT id_alerta, id_leitura, tipo_sensor,
-                   valor_lido, valor_limite, mensagem,
-                   data_hora, status
-            FROM alertas
-            WHERE tipo_sensor LIKE ?
-               OR mensagem LIKE ?
-               OR status LIKE ?
-            ORDER BY data_hora DESC";
+    $sql .= " WHERE a.tipo_sensor LIKE ?
+              OR a.mensagem LIKE ?
+              OR a.status LIKE ?
+              OR a.severidade LIKE ?
+              OR s.codigo LIKE ?
+              OR t.nome_trem LIKE ?
+              OR t.prefixo LIKE ?
+              ORDER BY a.data_hora DESC";
 
     $stmt = $conexao->prepare($sql);
 
@@ -32,15 +51,18 @@ if ($busca !== '') {
         exit("Erro ao consultar alertas: " . $conexao->error);
     }
 
-    $stmt->bind_param("sss", $termo, $termo, $termo);
-
+    $stmt->bind_param(
+        "sssssss",
+        $termo,
+        $termo,
+        $termo,
+        $termo,
+        $termo,
+        $termo,
+        $termo
+    );
 } else {
-
-    $sql = "SELECT id_alerta, id_leitura, tipo_sensor,
-                   valor_lido, valor_limite, mensagem,
-                   data_hora, status
-            FROM alertas
-            ORDER BY data_hora DESC";
+    $sql .= " ORDER BY a.data_hora DESC";
 
     $stmt = $conexao->prepare($sql);
 
@@ -54,7 +76,6 @@ if (!$stmt->execute()) {
 }
 
 $resultado = $stmt->get_result();
-
 $totalAlertas = $resultado->num_rows;
 
 ?>
@@ -65,7 +86,6 @@ $totalAlertas = $resultado->num_rows;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
     <title>Alertas e Notificações — FerroTrack</title>
 
     <link
@@ -85,7 +105,6 @@ $totalAlertas = $resultado->num_rows;
 
     <?php gerarCabecalho(); ?>
 
-    <!-- Barra superior -->
     <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
         <div class="container-fluid gap-2">
 
@@ -111,12 +130,10 @@ $totalAlertas = $resultado->num_rows;
                     height="32"
                     class="object-fit-contain"
                 >
-
                 <span class="fw-semibold">FerroTrack</span>
             </a>
 
             <div class="d-flex align-items-center gap-1">
-
                 <a
                     class="btn btn-sm btn-outline-secondary border-0"
                     href="alertas.php"
@@ -135,7 +152,6 @@ $totalAlertas = $resultado->num_rows;
                     <i class="bi bi-person-circle"></i>
                     <span>Minha conta</span>
                 </a>
-
             </div>
         </div>
     </nav>
@@ -143,12 +159,8 @@ $totalAlertas = $resultado->num_rows;
     <div class="container-fluid">
         <div class="row">
 
-            <!-- Menu lateral para computadores -->
-            <aside
-                class="col-lg-3 col-xl-2 d-none d-lg-block bg-white border-end p-0"
-            >
+            <aside class="col-lg-3 col-xl-2 d-none d-lg-block bg-white border-end p-0">
                 <nav class="p-3">
-
                     <ul class="nav nav-pills flex-column gap-1">
 
                         <li class="nav-item mt-2 mb-1">
@@ -257,11 +269,9 @@ $totalAlertas = $resultado->num_rows;
                         </li>
 
                     </ul>
-
                 </nav>
             </aside>
 
-            <!-- Menu lateral para celular -->
             <div
                 class="offcanvas offcanvas-start d-lg-none"
                 tabindex="-1"
@@ -282,7 +292,6 @@ $totalAlertas = $resultado->num_rows;
                 </div>
 
                 <div class="offcanvas-body">
-
                     <nav class="nav nav-pills flex-column gap-2">
 
                         <a class="nav-link text-body" href="dashboard.php">
@@ -316,18 +325,14 @@ $totalAlertas = $resultado->num_rows;
                         </a>
 
                     </nav>
-
                 </div>
             </div>
 
-            <!-- Conteúdo principal -->
             <main class="col-12 col-lg-9 col-xl-10 py-4 px-3 px-md-4">
 
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
-
                     <div>
                         <h1 class="h3 mb-1">Alertas e Notificações</h1>
-
                         <p class="text-secondary mb-0">
                             Ocorrências registradas pelos sensores do sistema
                         </p>
@@ -336,22 +341,16 @@ $totalAlertas = $resultado->num_rows;
                     <span class="badge text-bg-warning fs-6">
                         <?= $totalAlertas ?> alerta(s)
                     </span>
-
                 </div>
 
-                <!-- Pesquisa -->
                 <div class="card border-0 shadow-sm mb-4">
-
                     <div class="card-body">
-
                         <form
                             class="row g-2 align-items-end"
                             method="GET"
                             action="alertas.php"
                         >
-
                             <div class="col-12 col-md-9 col-lg-10">
-
                                 <label for="buscaAlerta" class="form-label">
                                     Buscar alertas
                                 </label>
@@ -361,28 +360,21 @@ $totalAlertas = $resultado->num_rows;
                                     class="form-control"
                                     id="buscaAlerta"
                                     name="busca"
-                                    placeholder="Buscar por tipo, mensagem ou status"
+                                    placeholder="Buscar por tipo, mensagem, status, sensor ou trem"
                                     value="<?= htmlspecialchars($busca, ENT_QUOTES, 'UTF-8') ?>"
                                 >
-
                             </div>
 
                             <div class="col-12 col-md-3 col-lg-2 d-grid">
-
                                 <button type="submit" class="btn btn-primary">
                                     <i class="bi bi-search me-1"></i>
                                     Buscar
                                 </button>
-
                             </div>
-
                         </form>
-
                     </div>
-
                 </div>
 
-                <!-- Lista de alertas reais do banco -->
                 <div class="row g-3">
 
                     <?php if ($totalAlertas > 0): ?>
@@ -390,30 +382,59 @@ $totalAlertas = $resultado->num_rows;
                         <?php while ($alerta = $resultado->fetch_assoc()): ?>
 
                             <div class="col-12 col-xl-6">
-
                                 <div class="card border-0 shadow-sm h-100">
-
                                     <div class="card-body">
 
                                         <div class="d-flex align-items-start gap-3">
-
                                             <div class="text-warning fs-3">
                                                 <i class="bi bi-exclamation-triangle-fill"></i>
                                             </div>
 
                                             <div class="flex-grow-1">
-
                                                 <h2 class="h5 mb-2">
                                                     Alerta de
-                                                    <?= htmlspecialchars($alerta['tipo_sensor'], ENT_QUOTES, 'UTF-8') ?>
+                                                    <?= htmlspecialchars($alerta['tipo'] ?: $alerta['tipo_sensor'], ENT_QUOTES, 'UTF-8') ?>
                                                 </h2>
 
                                                 <p class="mb-3">
                                                     <?= htmlspecialchars($alerta['mensagem'], ENT_QUOTES, 'UTF-8') ?>
                                                 </p>
-
                                             </div>
+                                        </div>
 
+                                        <div class="mb-3">
+                                            <div class="small text-secondary">Sensor</div>
+                                            <div class="fw-semibold">
+                                                <?= htmlspecialchars($alerta['codigo_sensor'], ENT_QUOTES, 'UTF-8') ?>
+                                                — <?= htmlspecialchars($alerta['tipo_do_sensor'], ENT_QUOTES, 'UTF-8') ?>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <div class="small text-secondary">Trem de origem</div>
+                                            <div class="fw-semibold">
+                                                <?= htmlspecialchars($alerta['nome_trem'], ENT_QUOTES, 'UTF-8') ?>
+                                                (<?= htmlspecialchars($alerta['prefixo'], ENT_QUOTES, 'UTF-8') ?>)
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <div class="small text-secondary">Severidade</div>
+
+                                            <?php
+                                            $severidade = $alerta['severidade'] ?: 'crítico';
+
+                                            $classeSeveridade = match ($severidade) {
+                                                'normal' => 'text-bg-success',
+                                                'atenção' => 'text-bg-warning',
+                                                'crítico' => 'text-bg-danger',
+                                                default => 'text-bg-secondary'
+                                            };
+                                            ?>
+
+                                            <span class="badge <?= $classeSeveridade ?>">
+                                                <?= htmlspecialchars($severidade, ENT_QUOTES, 'UTF-8') ?>
+                                            </span>
                                         </div>
 
                                         <hr>
@@ -421,7 +442,6 @@ $totalAlertas = $resultado->num_rows;
                                         <div class="row g-3">
 
                                             <div class="col-sm-6">
-
                                                 <span class="text-secondary small">
                                                     Valor registrado
                                                 </span>
@@ -430,11 +450,9 @@ $totalAlertas = $resultado->num_rows;
                                                     <?= htmlspecialchars((string) $alerta['valor_lido'], ENT_QUOTES, 'UTF-8') ?>
                                                     <?= $alerta['tipo_sensor'] === 'Temperatura' ? '°C' : '' ?>
                                                 </p>
-
                                             </div>
 
                                             <div class="col-sm-6">
-
                                                 <span class="text-secondary small">
                                                     Limite máximo
                                                 </span>
@@ -443,11 +461,9 @@ $totalAlertas = $resultado->num_rows;
                                                     <?= htmlspecialchars((string) $alerta['valor_limite'], ENT_QUOTES, 'UTF-8') ?>
                                                     <?= $alerta['tipo_sensor'] === 'Temperatura' ? '°C' : '' ?>
                                                 </p>
-
                                             </div>
 
                                             <div class="col-sm-6">
-
                                                 <span class="text-secondary small">
                                                     Data e hora
                                                 </span>
@@ -455,33 +471,24 @@ $totalAlertas = $resultado->num_rows;
                                                 <p class="mb-0">
                                                     <?= htmlspecialchars($alerta['data_hora'], ENT_QUOTES, 'UTF-8') ?>
                                                 </p>
-
                                             </div>
 
                                             <div class="col-sm-6">
-
                                                 <span class="text-secondary small">
                                                     Status
                                                 </span>
 
                                                 <p class="mb-0">
-
                                                     <?php if ($alerta['status'] === 'Pendente'): ?>
-
                                                         <span class="badge text-bg-warning">
                                                             Pendente
                                                         </span>
-
                                                     <?php else: ?>
-
                                                         <span class="badge text-bg-secondary">
                                                             <?= htmlspecialchars($alerta['status'], ENT_QUOTES, 'UTF-8') ?>
                                                         </span>
-
                                                     <?php endif; ?>
-
                                                 </p>
-
                                             </div>
 
                                         </div>
@@ -492,9 +499,7 @@ $totalAlertas = $resultado->num_rows;
                                         </div>
 
                                     </div>
-
                                 </div>
-
                             </div>
 
                         <?php endwhile; ?>
@@ -502,11 +507,8 @@ $totalAlertas = $resultado->num_rows;
                     <?php else: ?>
 
                         <div class="col-12">
-
                             <div class="card border-0 shadow-sm">
-
                                 <div class="card-body text-center py-5">
-
                                     <i class="bi bi-bell-slash fs-1 text-secondary"></i>
 
                                     <h2 class="h5 mt-3">
@@ -518,26 +520,20 @@ $totalAlertas = $resultado->num_rows;
                                     </p>
 
                                     <?php if ($busca !== ''): ?>
-
                                         <a
                                             href="alertas.php"
                                             class="btn btn-outline-primary mt-3"
                                         >
                                             Limpar pesquisa
                                         </a>
-
                                     <?php endif; ?>
-
                                 </div>
-
                             </div>
-
                         </div>
 
                     <?php endif; ?>
 
                 </div>
-
             </main>
 
         </div>

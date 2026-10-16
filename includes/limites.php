@@ -1,9 +1,9 @@
+
 <?php
 
 require_once __DIR__ . "/../assets/php/conexao.php";
 
 const MARGEM_ATENCAO = 0.10;
-
 
 function buscarLimite($tipo)
 {
@@ -15,11 +15,15 @@ function buscarLimite($tipo)
     }
 
     $stmt = $conexao->prepare(
-        "SELECT valor_maximo, unidade FROM limites WHERE tipo_sensor = ?"
+        "SELECT valor_maximo, unidade
+         FROM limites
+         WHERE tipo_sensor = ?"
     );
 
     if (!$stmt) {
-        throw new Exception("Erro ao consultar limites: " . $conexao->error);
+        throw new Exception(
+            "Erro ao consultar limites: " . $conexao->error
+        );
     }
 
     $stmt->bind_param("s", $tipo);
@@ -27,10 +31,14 @@ function buscarLimite($tipo)
     if (!$stmt->execute()) {
         $erro = $stmt->error;
         $stmt->close();
-        throw new Exception("Erro ao consultar limites: " . $erro);
+
+        throw new Exception(
+            "Erro ao consultar limites: " . $erro
+        );
     }
 
-    $limite = $stmt->get_result()->fetch_assoc();
+    $resultado = $stmt->get_result();
+    $limite = $resultado->fetch_assoc();
     $stmt->close();
 
     $cache[$tipo] = $limite ?: null;
@@ -42,22 +50,22 @@ function classificar($tipo, $valor)
 {
     $limite = buscarLimite($tipo);
 
-
     if ($limite === null) {
-        return 'normal';
+        throw new Exception(
+            "Não existe limite cadastrado para o sensor: " . $tipo
+        );
     }
 
-    $maximo = (float) $limite['valor_maximo'];
+    $maximo = (float) $limite["valor_maximo"];
     $valor = (float) $valor;
 
     if ($valor <= $maximo) {
-        return 'normal';
+        return "normal";
     }
 
     if ($valor <= round($maximo * (1 + MARGEM_ATENCAO), 2)) {
-        return 'atencao';
+        return "atencao";
     }
 
-    return 'critico';
+    return "critico";
 }
-?>

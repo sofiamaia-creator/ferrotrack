@@ -1,3 +1,4 @@
+
 <?php
 
 require_once "../assets/php/proteger.php";
@@ -16,122 +17,83 @@ $erro = "";
 $mensagem = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-
     $id_sensor = (int) ($_POST['id_sensor'] ?? 0);
     $quantidade = (int) ($_POST['quantidade'] ?? 0);
     $fora_limite = isset($_POST['fora_limite']);
 
     if ($id_sensor <= 0 || $quantidade <= 0) {
-
         $erro = "Selecione um sensor e informe uma quantidade válida.";
-
     } elseif ($quantidade > 100) {
-
         $erro = "A quantidade máxima é 100 leituras.";
-
     } else {
-
-        $sql_sensor = "SELECT tipo FROM sensores WHERE id_sensor = ?";
-        $stmt_sensor = $conexao->prepare($sql_sensor);
+        $stmt_sensor = $conexao->prepare(
+            "SELECT tipo FROM sensores WHERE id_sensor = ?"
+        );
 
         if (!$stmt_sensor) {
             $erro = "Erro ao consultar sensor: " . $conexao->error;
         } else {
-
             $stmt_sensor->bind_param("i", $id_sensor);
-            $stmt_sensor->execute();
 
-            $resultado_sensor = $stmt_sensor->get_result();
-            $sensor = $resultado_sensor->fetch_assoc();
+            if (!$stmt_sensor->execute()) {
+                $erro = "Erro ao consultar sensor: " . $stmt_sensor->error;
+            } else {
+                $sensor = $stmt_sensor->get_result()->fetch_assoc();
+            }
 
             $stmt_sensor->close();
 
-            if (!$sensor) {
-
+            if ($erro === "" && empty($sensor)) {
                 $erro = "Sensor não encontrado.";
+            }
 
-            } else {
+            if ($erro === "" && !empty($sensor)) {
+                $tipo_sensor = $sensor['tipo'];
 
-                $tipo = strtolower($sensor['tipo']);
+                try {
+                    $limite_sensor = buscarLimite($tipo_sensor);
 
-                if (strpos($tipo, 'temperatura') !== false) {
-
-                    $unidade = "°C";
-
-                    if ($fora_limite) {
-                        $minimo = 101;
-                        $maximo = 130;
-                    } else {
-                        $minimo = 60;
-                        $maximo = 90;
+                    if ($limite_sensor === null) {
+                        throw new Exception(
+                            "Não existe limite cadastrado para esse sensor."
+                        );
                     }
 
-                } elseif (strpos($tipo, 'velocidade') !== false) {
-
-                    $unidade = "km/h";
-
-                    if ($fora_limite) {
-                        $minimo = 111;
-                        $maximo = 160;
-                    } else {
-                        $minimo = 40;
-                        $maximo = 100;
-                    }
-
-                } elseif (
-                    strpos($tipo, 'pressão') !== false ||
-                    strpos($tipo, 'pressao') !== false
-                ) {
-
-                    $unidade = "bar";
+                    $unidade = $limite_sensor['unidade'];
+                    $valor_limite = (float) $limite_sensor['valor_maximo'];
 
                     if ($fora_limite) {
-                        $minimo = 7.25;
-                        $maximo = 12;
+                        $minimo = $valor_limite * 1.01;
+                        $maximo = $valor_limite * 1.30;
                     } else {
-                        $minimo = 2;
-                        $maximo = 6;
+                        $minimo = $valor_limite * 0.50;
+                        $maximo = $valor_limite * 0.90;
                     }
 
-                } else {
+                    $stmt = $conexao->prepare(
+                        "INSERT INTO leituras
+                         (id_sensor, data_hora, valor, unidade)
+                         VALUES (?, ?, ?, ?)"
+                    );
 
-                    $unidade = "un";
-
-                    if ($fora_limite) {
-                        $minimo = 101;
-                        $maximo = 150;
-                    } else {
-                        $minimo = 20;
-                        $maximo = 80;
+                    if (!$stmt) {
+                        throw new Exception(
+                            "Erro ao preparar a leitura: " . $conexao->error
+                        );
                     }
-                }
-
-                $stmt = $conexao->prepare(
-                    "INSERT INTO leituras
-                    (id_sensor, data_hora, valor, unidade)
-                    VALUES (?, ?, ?, ?)"
-                );
-
-                if (!$stmt) {
-
-                    $erro = "Erro ao preparar o cadastro: " . $conexao->error;
-
-                } else {
 
                     $conexao->begin_transaction();
 
                     try {
-
                         for ($i = 0; $i < $quantidade; $i++) {
-
                             $data_hora = date(
                                 'Y-m-d H:i:s',
                                 time() - ($i * 300)
                             );
 
                             $valor = mt_rand(
-                                $minimo * 100,
-                                $maximo * 100
+                                (int) round($minimo * 100),
+                                (int) round($maximo * 100)
                             ) / 100;
 
                             $stmt->bind_param(
@@ -148,7 +110,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                 );
                             }
 
-                            $id_leitura = $stmt->insert_id;
+                            $id_leitura = $conexao->insert_id;
 
                             if (!$id_leitura) {
                                 throw new Exception(
@@ -159,22 +121,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             verificarAlerta(
                                 $conexao,
                                 $id_leitura,
-                                $sensor['tipo'],
+                                $tipo_sensor,
                                 $valor
                             );
                         }
 
                         $conexao->commit();
                         $mensagem = "$quantidade leituras geradas com sucesso!";
-
                     } catch (Throwable $e) {
-
                         $conexao->rollback();
-                        $erro = "Erro ao gerar leituras: " . $e->getMessage();
-
+                        throw $e;
+                    } finally {
+                        $stmt->close();
                     }
-
-                    $stmt->close();
+                } catch (Throwable $e) {
+                    $erro = "Erro ao gerar leituras: " . $e->getMessage();
                 }
             }
         }
@@ -194,21 +155,19 @@ $sensores = $conexao->query(
      ORDER BY trens.prefixo, sensores.codigo"
 );
 
+if (!$sensores) {
+    die("Erro ao consultar sensores: " . $conexao->error);
+}
+
 ?>
 
 <!DOCTYPE html>
 <html lang="pt-BR">
 
 <head>
-
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1"
-    >
-
-    <title>Simulador de Leituras — Ferrovias</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Simulador de Leituras — FerroTrack</title>
 
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
@@ -219,7 +178,6 @@ $sensores = $conexao->query(
         href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
         rel="stylesheet"
     >
-
 </head>
 
 <body class="bg-body-tertiary">
@@ -229,46 +187,33 @@ $sensores = $conexao->query(
 <div class="container py-4">
 
     <div class="mb-4">
-
-        <h1 class="h3 mb-1">
-            Simulador de Leituras
-        </h1>
-
+        <h1 class="h3 mb-1">Simulador de Leituras</h1>
         <p class="text-secondary mb-0">
             Gere leituras simuladas para os sensores do sistema.
         </p>
-
     </div>
 
     <?php if ($mensagem !== ""): ?>
-
         <div class="alert alert-success">
             <i class="bi bi-check-circle me-1"></i>
             <?= htmlspecialchars($mensagem) ?>
         </div>
-
     <?php endif; ?>
 
     <?php if ($erro !== ""): ?>
-
         <div class="alert alert-danger">
             <i class="bi bi-exclamation-triangle me-1"></i>
             <?= htmlspecialchars($erro) ?>
         </div>
-
     <?php endif; ?>
 
     <div class="card border-0 shadow-sm">
-
         <div class="card-body">
 
             <form method="POST">
 
                 <div class="mb-3">
-
-                    <label for="id_sensor" class="form-label">
-                        Sensor
-                    </label>
+                    <label for="id_sensor" class="form-label">Sensor</label>
 
                     <select
                         name="id_sensor"
@@ -276,31 +221,21 @@ $sensores = $conexao->query(
                         class="form-select"
                         required
                     >
-
-                        <option value="">
-                            Selecione o sensor
-                        </option>
+                        <option value="">Selecione o sensor</option>
 
                         <?php while ($sensor = $sensores->fetch_assoc()): ?>
-
-                            <option value="<?= $sensor['id_sensor'] ?>">
-
+                            <option value="<?= (int) $sensor['id_sensor'] ?>">
                                 <?= htmlspecialchars($sensor['codigo']) ?>
                                 —
                                 <?= htmlspecialchars($sensor['prefixo']) ?>
                                 —
                                 <?= htmlspecialchars($sensor['tipo']) ?>
-
                             </option>
-
                         <?php endwhile; ?>
-
                     </select>
-
                 </div>
 
                 <div class="mb-3">
-
                     <label for="quantidade" class="form-label">
                         Quantidade de leituras
                     </label>
@@ -319,11 +254,9 @@ $sensores = $conexao->query(
                     <div class="form-text">
                         Máximo de 100 leituras por vez.
                     </div>
-
                 </div>
 
                 <div class="form-check mb-4">
-
                     <input
                         class="form-check-input"
                         type="checkbox"
@@ -337,13 +270,9 @@ $sensores = $conexao->query(
                     >
                         Gerar valores acima do limite (atenção e crítico)
                     </label>
-
                 </div>
 
-                <button
-                    type="submit"
-                    class="btn btn-primary"
-                >
+                <button type="submit" class="btn btn-primary">
                     <i class="bi bi-play-circle me-1"></i>
                     Gerar leituras
                 </button>
@@ -358,7 +287,6 @@ $sensores = $conexao->query(
             </form>
 
         </div>
-
     </div>
 
 </div>
@@ -366,5 +294,4 @@ $sensores = $conexao->query(
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
-
 </html>
