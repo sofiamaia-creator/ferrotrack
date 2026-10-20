@@ -18,7 +18,8 @@ $idUsuario = (int) $_SESSION['id_usuario'];
 
 $trensPorStatus = [];
 $alertasPorSeveridade = [];
-$sensoresCriticos = 0;
+$sensoresCriticos = null;
+$temLeituras = false;
 $viagensEmAndamento = 0;
 $velocidadeMedia = null;
 $viagens = [];
@@ -88,6 +89,10 @@ if ($papel === 'gestor') {
 
     if ($resultado) {
         while ($linha = $resultado->fetch_assoc()) {
+            $temLeituras = true;
+            if ($sensoresCriticos === null) {
+                $sensoresCriticos = 0;
+            }
             try {
                 if (strtolower(classificar($linha['tipo'], (float) $linha['valor'])) === 'critico') {
                     $sensoresCriticos++;
@@ -194,6 +199,10 @@ if ($papel === 'maquinista' && $idTrem !== null) {
         $resultado = $stmt->get_result();
 
         while ($linha = $resultado->fetch_assoc()) {
+            $temLeituras = true;
+            if ($sensoresCriticos === null) {
+                $sensoresCriticos = 0;
+            }
             try {
                 if (strtolower(classificar($linha['tipo'], (float) $linha['valor'])) === 'critico') {
                     $sensoresCriticos++;
@@ -242,6 +251,11 @@ if ($papel === 'cliente') {
     }
 
     $viagensEmAndamento = count($viagens);
+}
+
+$maiorQuantidadeTrens = 0;
+foreach ($trensPorStatus as $trem) {
+    $maiorQuantidadeTrens = max($maiorQuantidadeTrens, (int) $trem['quantidade']);
 }
 
 function escapar($valor)
@@ -308,6 +322,52 @@ function escapar($valor)
             font-size: 1.8rem;
             font-weight: 700;
             color: #1e3a8a;
+        }
+
+        .grafico-barras {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .grafico-linha {
+            display: grid;
+            grid-template-columns: minmax(90px, 120px) minmax(0, 1fr) 32px;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .grafico-status {
+            overflow-wrap: anywhere;
+            font-size: 0.9rem;
+        }
+
+        .grafico-trilho {
+            width: 100%;
+            height: 18px;
+            overflow: hidden;
+            border-radius: 6px;
+            background: #e9ecef;
+        }
+
+        .grafico-barra {
+            height: 100%;
+            min-width: 0;
+            border-radius: 6px;
+            background: #1e3a8a;
+            transition: width 0.3s ease;
+        }
+
+        .grafico-quantidade {
+            text-align: right;
+            font-weight: 700;
+        }
+
+        @media (max-width: 575.98px) {
+            .grafico-linha {
+                grid-template-columns: 90px minmax(0, 1fr) 26px;
+                gap: 7px;
+            }
         }
 
         @media (min-width: 1200px) {
@@ -438,12 +498,19 @@ function escapar($valor)
                                 <?php if (empty($trensPorStatus)): ?>
                                     <p class="text-secondary mb-0">Sem dados</p>
                                 <?php else: ?>
-                                    <?php foreach ($trensPorStatus as $trem): ?>
-                                        <div class="d-flex justify-content-between align-items-center border-bottom py-2">
-                                            <span><?= escapar($trem['status'] ?? 'Sem status') ?></span>
-                                            <strong><?= (int) $trem['quantidade'] ?></strong>
-                                        </div>
-                                    <?php endforeach; ?>
+                                    <div class="grafico-barras" role="img" aria-label="Gráfico de barras com a quantidade de trens por status">
+                                        <?php foreach ($trensPorStatus as $trem): ?>
+                                            <?php $quantidadeTrem = (int) $trem['quantidade']; ?>
+                                            <?php $larguraBarra = $maiorQuantidadeTrens > 0 ? ($quantidadeTrem / $maiorQuantidadeTrens) * 100 : 0; ?>
+                                            <div class="grafico-linha">
+                                                <span class="grafico-status"><?= escapar($trem['status'] ?? 'Sem status') ?></span>
+                                                <div class="grafico-trilho">
+                                                    <div class="grafico-barra" style="width: <?= number_format($larguraBarra, 2, '.', '') ?>%"></div>
+                                                </div>
+                                                <span class="grafico-quantidade"><?= $quantidadeTrem ?></span>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -485,8 +552,10 @@ function escapar($valor)
                                     <h2 class="h6 mb-0">Sensores com leitura crítica</h2>
                                 </div>
 
-                                <div class="indicador-valor"><?= $sensoresCriticos ?></div>
-                                <p class="text-secondary small mb-0">Com base na leitura mais recente de cada sensor</p>
+                                <div class="indicador-valor"><?= $sensoresCriticos === null ? 'Sem dados' : $sensoresCriticos ?></div>
+                                <p class="text-secondary small mb-0">
+                                    <?= $sensoresCriticos === null ? 'Ainda não existem leituras registradas.' : 'Com base na leitura mais recente de cada sensor.' ?>
+                                </p>
                             </div>
                         </div>
                     </div>
