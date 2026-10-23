@@ -1,3 +1,4 @@
+
 <?php
 
 require_once "../assets/php/proteger.php";
@@ -9,31 +10,25 @@ if (!temPapel(['maquinista', 'gestor'])) {
     exit("Acesso negado.");
 }
 
-// Processa o formulário antes de qualquer saída HTML
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // Recebe os dados do formulário
     $tipo = trim($_POST['tipo'] ?? '');
     $dataInicio = trim($_POST['data_inicio'] ?? '');
     $dataFim = trim($_POST['data_fim'] ?? '');
     $idTrem = trim($_POST['id_trem'] ?? '');
 
-    // Tipos de relatório permitidos
     $tiposPermitidos = [
-        'desempenho',
-        'consumo',
-        'eficiencia',
+        'passagens',
         'manutencao',
-        'carga'
+        'carga',
+        'operacional'
     ];
 
-    // Valida o tipo de relatório
     if (!in_array($tipo, $tiposPermitidos, true)) {
         http_response_code(400);
         exit("Tipo de relatório inválido.");
     }
 
-    // Valida o formato das datas, quando preenchidas
     $validarData = function ($data) {
         if ($data === '') {
             return true;
@@ -50,7 +45,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit("Data inválida.");
     }
 
-    // Valida a ordem das datas
     if (
         $dataInicio !== '' &&
         $dataFim !== '' &&
@@ -60,13 +54,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit("A data inicial não pode ser posterior à data final.");
     }
 
-    // Valida o ID do trem
     if ($idTrem !== '' && !ctype_digit($idTrem)) {
         http_response_code(400);
         exit("Trem inválido.");
     }
 
-    // Monta os parâmetros da URL
+    if ($idTrem !== '' && (int) $idTrem <= 0) {
+        http_response_code(400);
+        exit("Trem inválido.");
+    }
+
     $parametros = http_build_query([
         'tipo' => $tipo,
         'data_inicio' => $dataInicio,
@@ -74,14 +71,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'id_trem' => $idTrem
     ]);
 
-    // Redireciona para a página de visualização
     header("Location: visualiza-relatorio.php?$parametros");
     exit;
 }
 
 require_once "../assets/php/cabecalho.php";
 
-// Busca os trens para preencher o formulário
 $sqlTrens = "SELECT id_trem, prefixo FROM trens ORDER BY prefixo";
 $resultadoTrens = $conexao->query($sqlTrens);
 
@@ -139,11 +134,13 @@ $resultadoTrens = $conexao->query($sqlTrens);
                             name="tipo"
                             id="tipo"
                             required>
+
                             <option value="">Selecione o tipo</option>
-                            <option value="consumo">Carga</option>
-                            <option value="eficiencia">Operacional</option>
+                            <option value="passagens">Passagens</option>
                             <option value="manutencao">Manutenção</option>
-                            <option value="carga">Passagens</option>
+                            <option value="carga">Carga</option>
+                            <option value="operacional">Operacional</option>
+
                         </select>
                     </div>
 
@@ -190,6 +187,7 @@ $resultadoTrens = $conexao->query($sqlTrens);
                             class="form-select"
                             name="id_trem"
                             id="id_trem">
+
                             <option value="">Todos os trens</option>
 
                             <?php if ($resultadoTrens): ?>

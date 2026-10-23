@@ -1,515 +1,232 @@
 <?php
-
 require_once "../assets/php/proteger.php";
 require_once "../assets/php/permissao.php";
+require_once "../assets/php/conexao.php";
 require_once "../assets/php/cabecalho.php";
 
 if (!temPapel(['gestor', 'cliente'])) {
+    http_response_code(403);
     echo "Acesso negado.";
     exit;
 }
-?>
 
+$mensagem = "";
+$tipoMensagem = "danger";
+$precoUnitario = 5.25;
+$rotas = [];
+$clienteId = null;
+
+$resultadoRotas = $conexao->query(
+    "SELECT id_rota, origem, destino, data_viagem, hora_partida, hora_chegada
+     FROM rotas
+     ORDER BY data_viagem, hora_partida"
+);
+
+if ($resultadoRotas) {
+    while ($rota = $resultadoRotas->fetch_assoc()) {
+        $rotas[] = $rota;
+    }
+}
+
+$idUsuario = $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? null;
+
+if ($idUsuario !== null) {
+    $stmtCliente = $conexao->prepare(
+        "SELECT cliente_id FROM cliente WHERE id_usuario = ? LIMIT 1"
+    );
+    if ($stmtCliente) {
+        $stmtCliente->bind_param("i", $idUsuario);
+        $stmtCliente->execute();
+        $resultadoCliente = $stmtCliente->get_result();
+        if ($linhaCliente = $resultadoCliente->fetch_assoc()) {
+            $clienteId = (int)$linhaCliente['cliente_id'];
+        }
+        $stmtCliente->close();
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar_passagem'])) {
+    $idRota = filter_input(INPUT_POST, 'id_rota', FILTER_VALIDATE_INT);
+    $quantidade = filter_input(INPUT_POST, 'quantidade_passageiros', FILTER_VALIDATE_INT);
+    $tipoTicket = trim($_POST['tipo_ticket'] ?? '');
+    $formaPagamento = trim($_POST['forma_pagamento'] ?? '');
+
+    $formasPermitidas = ['Cartão de Crédito', 'Pix', 'Boleto', 'Carteira Digital'];
+    $tiposPermitidos = ['Inteira', 'Meia', 'Idoso'];
+
+    if (!$clienteId) {
+        $mensagem = "Não foi possível identificar seu cadastro de cliente. Entre com uma conta vinculada a um cliente.";
+    } elseif (!$idRota || !$quantidade || $quantidade < 1 || $quantidade > 10) {
+        $mensagem = "Selecione uma rota e informe entre 1 e 10 passageiros.";
+    } elseif (!in_array($tipoTicket, $tiposPermitidos, true)) {
+        $mensagem = "Selecione um tipo de bilhete válido.";
+    } elseif (!in_array($formaPagamento, $formasPermitidas, true)) {
+        $mensagem = "Selecione uma forma de pagamento válida.";
+    } else {
+        $stmtRota = $conexao->prepare(
+            "SELECT origem, destino, data_viagem FROM rotas WHERE id_rota = ? LIMIT 1"
+        );
+        $stmtRota->bind_param("i", $idRota);
+        $stmtRota->execute();
+        $resultadoRota = $stmtRota->get_result();
+        $dadosRota = $resultadoRota->fetch_assoc();
+        $stmtRota->close();
+
+        if (!$dadosRota) {
+            $mensagem = "A rota selecionada não foi encontrada.";
+        } else {
+            $valorUnitario = $precoUnitario;
+            if ($tipoTicket === 'Meia') {
+                $valorUnitario = $precoUnitario / 2;
+            } elseif ($tipoTicket === 'Idoso') {
+                $valorUnitario = 0.0;
+            }
+
+            $dataHoraTicket = date('Y-m-d H:i:s');
+            $lugaresMaisComprados = $dadosRota['destino'];
+
+            $stmtTicket = $conexao->prepare(
+                "INSERT INTO ticket
+                (local_destino, local_partida, data_hora_ticket, quantidade_passageiros,
+                 valor_ticket, quantidade_tickets, forma_pagamento, lugares_mais_comprados,
+                 tipo_ticket, cliente_id, id_rota)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            );
+
+            if (!$stmtTicket) {
+                $mensagem = "Não foi possível preparar o registro da passagem.";
+            } else {
+                $stmtTicket->bind_param(
+                    "sssidisssii",
+                    $dadosRota['destino'],
+                    $dadosRota['origem'],
+                    $dataHoraTicket,
+                    $quantidade,
+                    $valorUnitario,
+                    $quantidade,
+                    $formaPagamento,
+                    $lugaresMaisComprados,
+                    $tipoTicket,
+                    $clienteId,
+                    $idRota
+                );
+
+                if ($stmtTicket->execute()) {
+                    $tipoMensagem = "success";
+                    $total = $valorUnitario * $quantidade;
+                    $mensagem = "Registro simulado concluído! {$quantidade} passagem(ns) registrada(s). Total: R$ " . number_format($total, 2, ',', '.') . ". Nenhuma cobrança real foi realizada.";
+                } else {
+                    $mensagem = "Não foi possível registrar a passagem: " . $stmtTicket->error;
+                }
+                $stmtTicket->close();
+            }
+        }
+    }
+}
+
+function h($valor) {
+    return htmlspecialchars((string)($valor ?? ''), ENT_QUOTES, 'UTF-8');
+}
+?>
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Opção de Pagamento — Ferrovias</title>
+    <title>Pagamento — Ferrovias</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../paginas/cabecalho.css">
 </head>
-
 <body class="bg-body-tertiary">
 <?php gerarCabecalho(); ?>
-   
-    <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
-      <div class="container-fluid gap-2">
-
-        <button class="btn btn-outline-secondary d-lg-none" type="button"
-                data-bs-toggle="offcanvas" data-bs-target="#menuLateral"
-                aria-controls="menuLateral" aria-label="Abrir menu">
-          <i class="bi bi-list fs-4"></i>
-        </button>
-
-        <a class="navbar-brand d-flex align-items-center gap-2 me-auto" href="painel-gestor.php">
-          <img src="../assets/img/logo.png" alt="Ferrovias" width="32" height="32" class="object-fit-contain">
-          <span class="fw-semibold">Ferrovias</span>
-        </a>
-
-        <div class="d-flex align-items-center gap-1">
-          
-          <button class="btn btn-sm btn-outline-secondary border-0 position-relative" type="button" title="Notificações" aria-label="Notificações" onclick="window.location.href='alertas.php'">
-            <i class="bi bi-bell fs-5"></i>
-            <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
-          </button>
-          <div class="vr mx-2 d-none d-sm-block"></div>
-          <a class="btn btn-sm btn-outline-primary d-none d-sm-inline-flex align-items-center gap-1" href="perfil.php">
-            <i class="bi bi-person-circle"></i>
-            <span class="d-none d-md-inline">Minha conta</span>
-          </a>
-        </div>
-
-      </div>
-    </nav>
-
+<nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
     <div class="container-fluid">
-      <div class="row">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="painel-cliente.php">
+            <img src="../assets/img/logo.png" alt="Ferrovias" width="32" height="32">
+            <span class="fw-semibold">Ferrovias</span>
+        </a>
+        <a class="btn btn-outline-primary btn-sm" href="passagens.php"><i class="bi bi-ticket-perforated me-1"></i>Passagens</a>
+    </div>
+</nav>
 
-        <!-- Menu lateral: fixo a partir de lg, gaveta no celular e no tablet -->
-        <aside class="col-lg-3 col-xl-2 d-none d-lg-block bg-white border-end vh-100 position-sticky top-0 p-0">
-          <nav class="p-3 overflow-auto h-100">
-            <ul class="nav nav-pills flex-column">
-          <li class="nav-item mt-3 mb-1">
-            <span class="text-uppercase small fw-semibold text-secondary px-3">Painéis</span>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-gestor.php">
-              <i class="bi bi-speedometer2"></i>
-              <span>Painel do Gestor</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-maquinista.php">
-              <i class="bi bi-person-badge"></i>
-              <span>Painel do Maquinista</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-cliente.php">
-              <i class="bi bi-person"></i>
-              <span>Painel do Cliente</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="dashboard.php">
-              <i class="bi bi-grid-1x2"></i>
-              <span>Dashboard Geral</span>
-            </a>
-          </li>
-          <li class="nav-item mt-3 mb-1">
-            <span class="text-uppercase small fw-semibold text-secondary px-3">Operação</span>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gestao-rotas.php">
-              <i class="bi bi-signpost-split"></i>
-              <span>Gestão de Rotas</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-rota.php">
-              <i class="bi bi-plus-square"></i>
-              <span>Adicionar Rota</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="monitoramento-cargas.php">
-              <i class="bi bi-box-seam"></i>
-              <span>Monitoramento de Cargas</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens.php">
-              <i class="bi bi-train-front"></i>
-              <span>Trens</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens-cadastrados.php">
-              <i class="bi bi-list-ul"></i>
-              <span>Trens Cadastrados</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="alertas.php">
-              <i class="bi bi-bell"></i>
-              <span>Alertas e Notificações</span>
-            </a>
-          </li>
-          <li class="nav-item mt-3 mb-1">
-            <span class="text-uppercase small fw-semibold text-secondary px-3">Sensores</span>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="sensores.php">
-              <i class="bi bi-cpu"></i>
-              <span>Gerenciar Sensores</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-sensor.php">
-              <i class="bi bi-plus-circle"></i>
-              <span>Adicionar Sensor</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="editar-sensor.php">
-              <i class="bi bi-pencil"></i>
-              <span>Editar Sensor</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="remover-sensor.php">
-              <i class="bi bi-dash-circle"></i>
-              <span>Remover Sensor</span>
-            </a>
-          </li>
-          <li class="nav-item mt-3 mb-1">
-            <span class="text-uppercase small fw-semibold text-secondary px-3">Relatórios</span>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="relatorios.php">
-              <i class="bi bi-file-earmark-bar-graph"></i>
-              <span>Relatórios</span>
-            </a>
-          </li>
-          <li class="nav-item mt-3 mb-1">
-            <span class="text-uppercase small fw-semibold text-secondary px-3">Usuários</span>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="usuarios.php">
-              <i class="bi bi-people"></i>
-              <span>Status de Usuários</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gerenciamento-usuarios.php">
-              <i class="bi bi-person-gear"></i>
-              <span>Gerenciar Usuários</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-usuario.php">
-              <i class="bi bi-person-plus"></i>
-              <span>Adicionar Usuário</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="perfil.php">
-              <i class="bi bi-person-circle"></i>
-              <span>Meu Perfil</span>
-            </a>
-          </li>
-          <li class="nav-item mt-3 mb-1">
-            <span class="text-uppercase small fw-semibold text-secondary px-3">Cliente</span>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 active bg-primary text-white" href="pagamento.php" aria-current="page">
-              <i class="bi bi-credit-card"></i>
-              <span>Pagamento</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="passagens.php">
-              <i class="bi bi-ticket-perforated"></i>
-              <span>Passagens</span>
-            </a>
-          </li>
-            </ul>
-          </nav>
-        </aside>
-
-        <!-- Mesma navegação, em gaveta, para telas menores -->
-        <div class="offcanvas offcanvas-start d-lg-none" tabindex="-1" id="menuLateral" aria-labelledby="tituloMenu">
-          <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title" id="tituloMenu">Menu</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
-          </div>
-          <div class="offcanvas-body">
-            <ul class="nav nav-pills flex-column">
-          <li class="nav-item mt-3 mb-1">
-            <span class="text-uppercase small fw-semibold text-secondary px-3">Painéis</span>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-gestor.php">
-              <i class="bi bi-speedometer2"></i>
-              <span>Painel do Gestor</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-maquinista.php">
-              <i class="bi bi-person-badge"></i>
-              <span>Painel do Maquinista</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-cliente.php">
-              <i class="bi bi-person"></i>
-              <span>Painel do Cliente</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="dashboard.php">
-              <i class="bi bi-grid-1x2"></i>
-              <span>Dashboard Geral</span>
-            </a>
-          </li>
-          <li class="nav-item mt-3 mb-1">
-            <span class="text-uppercase small fw-semibold text-secondary px-3">Operação</span>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gestao-rotas.php">
-              <i class="bi bi-signpost-split"></i>
-              <span>Gestão de Rotas</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-rota.php">
-              <i class="bi bi-plus-square"></i>
-              <span>Adicionar Rota</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="monitoramento-cargas.php">
-              <i class="bi bi-box-seam"></i>
-              <span>Monitoramento de Cargas</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens.php">
-              <i class="bi bi-train-front"></i>
-              <span>Trens</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens-cadastrados.php">
-              <i class="bi bi-list-ul"></i>
-              <span>Trens Cadastrados</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="alertas.php">
-              <i class="bi bi-bell"></i>
-              <span>Alertas e Notificações</span>
-            </a>
-          </li>
-          <li class="nav-item mt-3 mb-1">
-            <span class="text-uppercase small fw-semibold text-secondary px-3">Sensores</span>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="sensores.php">
-              <i class="bi bi-cpu"></i>
-              <span>Gerenciar Sensores</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-sensor.php">
-              <i class="bi bi-plus-circle"></i>
-              <span>Adicionar Sensor</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="editar-sensor.php">
-              <i class="bi bi-pencil"></i>
-              <span>Editar Sensor</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="remover-sensor.php">
-              <i class="bi bi-dash-circle"></i>
-              <span>Remover Sensor</span>
-            </a>
-          </li>
-          <li class="nav-item mt-3 mb-1">
-            <span class="text-uppercase small fw-semibold text-secondary px-3">Relatórios</span>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="relatorios.php">
-              <i class="bi bi-file-earmark-bar-graph"></i>
-              <span>Relatórios</span>
-            </a>
-          </li>
-          <li class="nav-item mt-3 mb-1">
-            <span class="text-uppercase small fw-semibold text-secondary px-3">Usuários</span>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="usuarios.php">
-              <i class="bi bi-people"></i>
-              <span>Status de Usuários</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gerenciamento-usuarios.php">
-              <i class="bi bi-person-gear"></i>
-              <span>Gerenciar Usuários</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-usuario.php">
-              <i class="bi bi-person-plus"></i>
-              <span>Adicionar Usuário</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="perfil.php">
-              <i class="bi bi-person-circle"></i>
-              <span>Meu Perfil</span>
-            </a>
-          </li>
-          <li class="nav-item mt-3 mb-1">
-            <span class="text-uppercase small fw-semibold text-secondary px-3">Cliente</span>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 active bg-primary text-white" href="pagamento.php" aria-current="page">
-              <i class="bi bi-credit-card"></i>
-              <span>Pagamento</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="passagens.php">
-              <i class="bi bi-ticket-perforated"></i>
-              <span>Passagens</span>
-            </a>
-          </li>
-            </ul>
-          </div>
+<main class="container py-4">
+    <div class="d-flex align-items-center gap-2 mb-4">
+        <a class="btn btn-outline-secondary btn-sm" href="painel-cliente.php" aria-label="Voltar"><i class="bi bi-arrow-left"></i></a>
+        <div>
+            <h1 class="h3 mb-0">Comprar passagem</h1>
+            <p class="text-secondary mb-0">Selecione a viagem e registre uma compra simulada.</p>
         </div>
-
-        <!-- Conteúdo da página -->
-        <main class="col-12 col-lg-9 col-xl-10 py-4 px-3 px-md-4">
-
-          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
-            <div class="d-flex align-items-center gap-2">
-              <a class="btn btn-outline-secondary btn-sm" href="painel-cliente.php" aria-label="Voltar">
-                <i class="bi bi-arrow-left"></i>
-              </a>
-              <div>
-                <h1 class="h3 mb-0">Opção de Pagamento</h1>
-                <p class="text-secondary mb-0 small">Resumo e forma de pagamento da viagem</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="row g-3">
-
-            <div class="col-12 col-xl-7">
-              <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 pt-3">
-                  <h2 class="h5 mb-0">Resumo da viagem</h2>
-                </div>
-                <div class="card-body">
-
-                  <div class="row align-items-center g-3 text-center text-md-start">
-                    <div class="col-12 col-md-5">
-                      <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
-                        <i class="bi bi-train-front-fill fs-3 text-primary"></i>
-                        <div>
-                          <p class="fw-semibold mb-0">Luz</p>
-                          <p class="text-secondary small mb-0">Linha 7 — Joinville</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="col-12 col-md-2 text-center">
-                      <i class="bi bi-arrow-right fs-4 text-secondary d-none d-md-inline"></i>
-                      <i class="bi bi-arrow-down fs-4 text-secondary d-md-none"></i>
-                    </div>
-                    <div class="col-12 col-md-5">
-                      <p class="fw-semibold mb-0">Curitiba</p>
-                    </div>
-                  </div>
-
-                  <hr>
-
-                  <div class="row g-3 text-center">
-                    <div class="col-4">
-                      <i class="bi bi-calendar3 fs-5 text-secondary"></i>
-                      <p class="text-secondary small mb-0">Data</p>
-                      <p class="fw-semibold mb-0">22/05/2026</p>
-                    </div>
-                    <div class="col-4">
-                      <i class="bi bi-clock fs-5 text-secondary"></i>
-                      <p class="text-secondary small mb-0">Horário</p>
-                      <p class="fw-semibold mb-0">08:30</p>
-                    </div>
-                    <div class="col-4">
-                      <i class="bi bi-person-fill fs-5 text-secondary"></i>
-                      <p class="text-secondary small mb-0">Passageiro</p>
-                      <p class="fw-semibold mb-0">1 adulto</p>
-                    </div>
-                  </div>
-
-                  <hr>
-
-                  <div class="row g-3">
-                    <div class="col-6">
-                      <p class="text-secondary small mb-0">Tipo de serviço</p>
-                      <p class="fw-semibold mb-0">Expresso</p>
-                    </div>
-                    <div class="col-6 text-end">
-                      <p class="text-secondary small mb-0">Valor total</p>
-                      <p class="h4 mb-0">R$ 5,25</p>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-            </div>
-
-            <div class="col-12 col-xl-5">
-
-              <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-white border-0 pt-3">
-                  <h2 class="h5 mb-0">Forma de pagamento</h2>
-                </div>
-                <div class="list-group list-group-flush">
-                  <label class="list-group-item d-flex align-items-center gap-3">
-                    <input class="form-check-input flex-shrink-0 m-0" type="radio" name="pagamento" id="pagamento1" checked>
-                    <i class="bi bi-credit-card fs-5 text-secondary"></i>
-                    <span>Cartão de Crédito</span>
-                  </label>
-                  <label class="list-group-item d-flex align-items-center gap-3">
-                    <input class="form-check-input flex-shrink-0 m-0" type="radio" name="pagamento" id="pagamento2">
-                    <i class="bi bi-qr-code fs-5 text-secondary"></i>
-                    <span>Pix</span>
-                  </label>
-                  <label class="list-group-item d-flex align-items-center gap-3">
-                    <input class="form-check-input flex-shrink-0 m-0" type="radio" name="pagamento" id="pagamento3">
-                    <i class="bi bi-receipt fs-5 text-secondary"></i>
-                    <span>Boleto</span>
-                  </label>
-                  <label class="list-group-item d-flex align-items-center gap-3">
-                    <input class="form-check-input flex-shrink-0 m-0" type="radio" name="pagamento" id="pagamento4">
-                    <i class="bi bi-wallet2 fs-5 text-secondary"></i>
-                    <span>Carteira Digital</span>
-                  </label>
-                </div>
-              </div>
-
-              <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 pt-3">
-                  <h2 class="h5 mb-0">Detalhes do pagamento</h2>
-                </div>
-                <div class="card-body">
-
-                  <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
-                    <div class="d-flex align-items-center gap-2">
-                      <i class="bi bi-credit-card-2-front fs-4 text-secondary"></i>
-                      <span class="fw-semibold">**** 1234</span>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="trocarCartao">
-                      Alterar
-                      <i class="bi bi-arrow-right ms-1"></i>
-                    </button>
-                  </div>
-
-                  <div class="d-grid">
-                    <button type="button" class="btn btn-primary btn-lg" id="btnPagar">Pagar R$ 5,25</button>
-                  </div>
-
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-
-        </main>
-
-      </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
-</body>
+    <?php if ($mensagem !== ''): ?>
+        <div class="alert alert-<?= h($tipoMensagem) ?>" role="alert"><?= h($mensagem) ?></div>
+    <?php endif; ?>
 
+    <?php if (!$clienteId): ?>
+        <div class="alert alert-warning">A conta conectada não foi identificada como cliente. Para registrar passagens, entre com uma conta vinculada à tabela <code>cliente</code>.</div>
+    <?php endif; ?>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 pt-3">
+                    <h2 class="h5 mb-0">Detalhes da passagem</h2>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="">
+                        <div class="mb-3">
+                            <label for="id_rota" class="form-label">Rota</label>
+                            <select class="form-select" id="id_rota" name="id_rota" required>
+                                <option value="">Selecione uma rota</option>
+                                <?php foreach ($rotas as $rota): ?>
+                                    <option value="<?= (int)$rota['id_rota'] ?>" <?= (string)($_POST['id_rota'] ?? '') === (string)$rota['id_rota'] ? 'selected' : '' ?>>
+                                        <?= h($rota['origem']) ?> → <?= h($rota['destino']) ?> | <?= h($rota['data_viagem']) ?> | <?= h(substr($rota['hora_partida'], 0, 5)) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?php if (!$rotas): ?><small class="text-danger">Nenhuma rota cadastrada.</small><?php endif; ?>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="quantidade_passageiros" class="form-label">Quantidade de passageiros</label>
+                                <input class="form-control" type="number" id="quantidade_passageiros" name="quantidade_passageiros" min="1" max="10" value="<?= h($_POST['quantidade_passageiros'] ?? '1') ?>" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="tipo_ticket" class="form-label">Tipo de bilhete</label>
+                                <select class="form-select" id="tipo_ticket" name="tipo_ticket" required>
+                                    <option value="Inteira">Inteira — R$ 5,25</option>
+                                    <option value="Meia" <?= ($_POST['tipo_ticket'] ?? '') === 'Meia' ? 'selected' : '' ?>>Meia — R$ 2,63</option>
+                                    <option value="Idoso" <?= ($_POST['tipo_ticket'] ?? '') === 'Idoso' ? 'selected' : '' ?>>Idoso — R$ 0,00</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 mb-3">
+                            <label for="forma_pagamento" class="form-label">Forma de pagamento</label>
+                            <select class="form-select" id="forma_pagamento" name="forma_pagamento" required>
+                                <option value="">Selecione</option>
+                                <?php foreach (['Cartão de Crédito', 'Pix', 'Boleto', 'Carteira Digital'] as $forma): ?>
+                                    <option value="<?= h($forma) ?>" <?= ($_POST['forma_pagamento'] ?? '') === $forma ? 'selected' : '' ?>><?= h($forma) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Este é um pagamento simulado para registrar dados de teste no sistema. Nenhuma cobrança real será feita.
+                        </div>
+
+                        <button class="btn btn-primary btn-lg w-100" type="submit" name="registrar_passagem" value="1" <?= (!$rotas || !$clienteId) ? 'disabled' : '' ?>>
+                            <i class="bi bi-ticket-perforated me-1"></i>Registrar passagem
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+</body>
 </html>

@@ -9,13 +9,11 @@ if (!temPapel(['maquinista', 'gestor'])) {
     exit("Acesso negado.");
 }
 
-require_once "../assets/php/cabecalho.php";
-
 $tiposPermitidos = [
     'passagens' => 'Passagens',
     'manutencao' => 'Manutenção',
-    'consumo' => 'Carga',
-    'eficiencia' => 'Operacional'
+    'carga' => 'Carga',
+    'operacional' => 'Operacional'
 ];
 
 $tipo = $_GET['tipo'] ?? '';
@@ -50,6 +48,19 @@ $rotasConcluidas = 0;
 $rotasNaoConcluidas = 0;
 $taxaConclusao = 0;
 
+$passagens = [];
+$totalPassagens = 0;
+$totalPassageiros = 0;
+$valorArrecadado = 0;
+$destinos = [];
+$tiposTicket = [];
+
+$manutencoes = [];
+$totalManutencoes = 0;
+$manutencoesConcluidas = 0;
+$manutencoesEmAndamento = 0;
+$taxaConclusaoManutencao = 0;
+
 $validarData = function ($data) {
     if ($data === '') {
         return true;
@@ -74,20 +85,196 @@ if (
     $erro = 'A data inicial não pode ser posterior à data final.';
 }
 
-if ($idTrem !== '' && !ctype_digit($idTrem)) {
+if ($idTrem !== '' && (!ctype_digit($idTrem) || (int) $idTrem <= 0)) {
     $erro = 'Trem inválido.';
 }
 
-if ($tipo === 'carga' && $erro === '') {
+if ($tipo === 'passagens' && $erro === '') {
+    $sql = "SELECT
+                t.id_ticket,
+                t.local_partida,
+                t.local_destino,
+                t.data_hora_ticket,
+                t.quantidade_passageiros,
+                t.valor_ticket,
+                t.quantidade_tickets,
+                t.forma_pagamento,
+                t.lugares_mais_comprados,
+                t.tipo_ticket,
+                r.id_trem,
+                tr.prefixo
+            FROM ticket t
+            LEFT JOIN rotas r ON r.id_rota = t.id_rota
+            LEFT JOIN trens tr ON tr.id_trem = r.id_trem
+            WHERE 1 = 1";
 
+    $parametros = [];
+    $tipos = '';
+
+    if ($dataInicio !== '') {
+        $sql .= " AND t.data_hora_ticket >= ?";
+        $parametros[] = $dataInicio . ' 00:00:00';
+        $tipos .= 's';
+    }
+
+    if ($dataFim !== '') {
+        $sql .= " AND t.data_hora_ticket < DATE_ADD(?, INTERVAL 1 DAY)";
+        $parametros[] = $dataFim . ' 00:00:00';
+        $tipos .= 's';
+    }
+
+    if ($idTrem !== '') {
+        $sql .= " AND r.id_trem = ?";
+        $parametros[] = (int) $idTrem;
+        $tipos .= 'i';
+    }
+
+    $sql .= " ORDER BY t.data_hora_ticket DESC, t.id_ticket DESC";
+
+    $stmt = $conexao->prepare($sql);
+
+    if ($stmt) {
+        if ($parametros) {
+            $stmt->bind_param($tipos, ...$parametros);
+        }
+
+        if ($stmt->execute()) {
+            $resultado = $stmt->get_result();
+
+            while ($linha = $resultado->fetch_assoc()) {
+                $passagens[] = $linha;
+                $totalPassagens += (int) $linha['quantidade_tickets'];
+                $totalPassageiros += (int) $linha['quantidade_passageiros'];
+                $valorArrecadado += (float) $linha['valor_ticket'] * (int) $linha['quantidade_tickets'];
+            }
+        } else {
+            $erro = 'Não foi possível consultar as passagens.';
+        }
+
+        $stmt->close();
+    } else {
+        $erro = 'Não foi possível preparar a consulta das passagens.';
+    }
+
+    if ($erro === '') {
+        $sql = "SELECT
+                    t.lugares_mais_comprados AS destino,
+                    SUM(t.quantidade_tickets) AS quantidade
+                FROM ticket t
+                LEFT JOIN rotas r ON r.id_rota = t.id_rota
+                WHERE t.lugares_mais_comprados IS NOT NULL
+                  AND t.lugares_mais_comprados <> ''";
+
+        $parametros = [];
+        $tipos = '';
+
+        if ($dataInicio !== '') {
+            $sql .= " AND t.data_hora_ticket >= ?";
+            $parametros[] = $dataInicio . ' 00:00:00';
+            $tipos .= 's';
+        }
+
+        if ($dataFim !== '') {
+            $sql .= " AND t.data_hora_ticket < DATE_ADD(?, INTERVAL 1 DAY)";
+            $parametros[] = $dataFim . ' 00:00:00';
+            $tipos .= 's';
+        }
+
+        if ($idTrem !== '') {
+            $sql .= " AND r.id_trem = ?";
+            $parametros[] = (int) $idTrem;
+            $tipos .= 'i';
+        }
+
+        $sql .= " GROUP BY t.lugares_mais_comprados ORDER BY quantidade DESC";
+
+        $stmt = $conexao->prepare($sql);
+
+        if ($stmt) {
+            if ($parametros) {
+                $stmt->bind_param($tipos, ...$parametros);
+            }
+
+            if ($stmt->execute()) {
+                $resultado = $stmt->get_result();
+
+                while ($linha = $resultado->fetch_assoc()) {
+                    $destinos[] = $linha;
+                }
+            } else {
+                $erro = 'Não foi possível consultar os destinos.';
+            }
+
+            $stmt->close();
+        } else {
+            $erro = 'Não foi possível preparar a consulta dos destinos.';
+        }
+    }
+
+    if ($erro === '') {
+        $sql = "SELECT
+                    t.tipo_ticket,
+                    SUM(t.quantidade_tickets) AS quantidade
+                FROM ticket t
+                LEFT JOIN rotas r ON r.id_rota = t.id_rota
+                WHERE t.tipo_ticket IS NOT NULL
+                  AND t.tipo_ticket <> ''";
+
+        $parametros = [];
+        $tipos = '';
+
+        if ($dataInicio !== '') {
+            $sql .= " AND t.data_hora_ticket >= ?";
+            $parametros[] = $dataInicio . ' 00:00:00';
+            $tipos .= 's';
+        }
+
+        if ($dataFim !== '') {
+            $sql .= " AND t.data_hora_ticket < DATE_ADD(?, INTERVAL 1 DAY)";
+            $parametros[] = $dataFim . ' 00:00:00';
+            $tipos .= 's';
+        }
+
+        if ($idTrem !== '') {
+            $sql .= " AND r.id_trem = ?";
+            $parametros[] = (int) $idTrem;
+            $tipos .= 'i';
+        }
+
+        $sql .= " GROUP BY t.tipo_ticket ORDER BY quantidade DESC";
+
+        $stmt = $conexao->prepare($sql);
+
+        if ($stmt) {
+            if ($parametros) {
+                $stmt->bind_param($tipos, ...$parametros);
+            }
+
+            if ($stmt->execute()) {
+                $resultado = $stmt->get_result();
+
+                while ($linha = $resultado->fetch_assoc()) {
+                    $tiposTicket[] = $linha;
+                }
+            } else {
+                $erro = 'Não foi possível consultar os tipos de passagem.';
+            }
+
+            $stmt->close();
+        } else {
+            $erro = 'Não foi possível preparar a consulta dos tipos de passagem.';
+        }
+    }
+}
+
+if ($tipo === 'carga' && $erro === '') {
     $sql = "SELECT
                 carga.nome_carga,
                 carga.data_transporte,
                 carga.peso,
                 trens.prefixo
             FROM carga
-            INNER JOIN trens
-                ON trens.id_trem = carga.id_trem
+            INNER JOIN trens ON trens.id_trem = carga.id_trem
             WHERE 1 = 1";
 
     $parametros = [];
@@ -116,13 +303,11 @@ if ($tipo === 'carga' && $erro === '') {
     $stmt = $conexao->prepare($sql);
 
     if ($stmt) {
-
-        if (!empty($parametros)) {
+        if ($parametros) {
             $stmt->bind_param($tipos, ...$parametros);
         }
 
         if ($stmt->execute()) {
-
             $resultado = $stmt->get_result();
 
             while ($linha = $resultado->fetch_assoc()) {
@@ -130,20 +315,17 @@ if ($tipo === 'carga' && $erro === '') {
                 $totalCargas++;
                 $pesoTotal += (float) $linha['peso'];
             }
-
         } else {
-            $erro = 'Não foi possível consultar os dados do relatório.';
+            $erro = 'Não foi possível consultar as cargas.';
         }
 
         $stmt->close();
-
     } else {
-        $erro = 'Não foi possível preparar a consulta do relatório.';
+        $erro = 'Não foi possível preparar a consulta das cargas.';
     }
 }
 
 if ($tipo === 'operacional' && $erro === '') {
-
     $sql = "SELECT
                 rotas.origem,
                 rotas.destino,
@@ -153,8 +335,7 @@ if ($tipo === 'operacional' && $erro === '') {
                 rotas.status,
                 trens.prefixo
             FROM rotas
-            INNER JOIN trens
-                ON trens.id_trem = rotas.id_trem
+            INNER JOIN trens ON trens.id_trem = rotas.id_trem
             WHERE 1 = 1";
 
     $parametros = [];
@@ -183,23 +364,20 @@ if ($tipo === 'operacional' && $erro === '') {
     $stmt = $conexao->prepare($sql);
 
     if ($stmt) {
-
-        if (!empty($parametros)) {
+        if ($parametros) {
             $stmt->bind_param($tipos, ...$parametros);
         }
 
         if ($stmt->execute()) {
-
             $resultado = $stmt->get_result();
 
             while ($linha = $resultado->fetch_assoc()) {
                 $rotas[] = $linha;
                 $totalRotas++;
 
-                if (
-                    mb_strtolower(trim($linha['status']), 'UTF-8')
-                    === 'concluída'
-                ) {
+                $status = mb_strtolower(trim($linha['status'] ?? ''), 'UTF-8');
+
+                if (in_array($status, ['concluída', 'concluida'], true)) {
                     $rotasConcluidas++;
                 }
             }
@@ -209,15 +387,85 @@ if ($tipo === 'operacional' && $erro === '') {
             if ($totalRotas > 0) {
                 $taxaConclusao = ($rotasConcluidas / $totalRotas) * 100;
             }
-
         } else {
-            $erro = 'Não foi possível consultar os dados do relatório.';
+            $erro = 'Não foi possível consultar as viagens.';
         }
 
         $stmt->close();
-
     } else {
-        $erro = 'Não foi possível preparar a consulta do relatório.';
+        $erro = 'Não foi possível preparar a consulta das viagens.';
+    }
+}
+
+if ($tipo === 'manutencao' && $erro === '') {
+    $sql = "SELECT
+                m.id_manutencao,
+                m.id_trem,
+                m.descricao,
+                m.data_inicio,
+                m.data_conclusao,
+                m.status,
+                m.observacoes,
+                tr.prefixo
+            FROM manutencoes m
+            INNER JOIN trens tr ON tr.id_trem = m.id_trem
+            WHERE 1 = 1";
+
+    $parametros = [];
+    $tipos = '';
+
+    if ($dataInicio !== '') {
+        $sql .= " AND m.data_inicio >= ?";
+        $parametros[] = $dataInicio;
+        $tipos .= 's';
+    }
+
+    if ($dataFim !== '') {
+        $sql .= " AND m.data_inicio <= ?";
+        $parametros[] = $dataFim;
+        $tipos .= 's';
+    }
+
+    if ($idTrem !== '') {
+        $sql .= " AND m.id_trem = ?";
+        $parametros[] = (int) $idTrem;
+        $tipos .= 'i';
+    }
+
+    $sql .= " ORDER BY m.data_inicio DESC, m.id_manutencao DESC";
+
+    $stmt = $conexao->prepare($sql);
+
+    if (!$stmt) {
+        $erro = 'Erro ao preparar consulta de manutenção: ' . $conexao->error;
+    } else {
+        if ($parametros) {
+            $stmt->bind_param($tipos, ...$parametros);
+        }
+
+        if (!$stmt->execute()) {
+            $erro = 'Erro ao consultar manutenções: ' . $stmt->error;
+        } else {
+            $resultado = $stmt->get_result();
+
+            while ($linha = $resultado->fetch_assoc()) {
+                $manutencoes[] = $linha;
+                $totalManutencoes++;
+
+                if ($linha['status'] === 'Concluída') {
+                    $manutencoesConcluidas++;
+                } elseif ($linha['status'] === 'Em andamento') {
+                    $manutencoesEmAndamento++;
+                }
+            }
+
+            if ($totalManutencoes > 0) {
+                $taxaConclusaoManutencao =
+                    ($manutencoesConcluidas / $totalManutencoes) * 100;
+            }
+        }
+
+        $stmt->close();
     }
 }
 
@@ -228,372 +476,426 @@ if ($tipo === 'operacional' && $erro === '') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <title>Visualizar Relatório — FerroTrack</title>
-
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
-        rel="stylesheet">
-
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-        rel="stylesheet">
-
+    <title>Relatório <?= htmlspecialchars($tiposPermitidos[$tipo], ENT_QUOTES, 'UTF-8') ?> — FerroTrack</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../paginas/cabecalho.css">
 </head>
 
 <body class="bg-body-tertiary">
 
-    <?php gerarCabecalho(); ?>
+<div class="container py-4">
 
-    <div class="container py-4">
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <a href="relatorios.php" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i>
+        </a>
 
-        <div class="d-flex align-items-center gap-3 mb-4">
-
-            <a
-                href="gera-relatorio.php"
-                class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i>
-            </a>
-
-            <div>
-                <h1 class="h3 mb-1">
-                    Relatório de
-                    <?= htmlspecialchars(
-                        $tiposPermitidos[$tipo],
-                        ENT_QUOTES,
-                        'UTF-8'
-                    ) ?>
-                </h1>
-
-                <p class="text-secondary mb-0">
-                    Resultado dos filtros selecionados.
-                </p>
-            </div>
-
+        <div>
+            <h1 class="h3 mb-1">
+                Relatório de <?= htmlspecialchars($tiposPermitidos[$tipo], ENT_QUOTES, 'UTF-8') ?>
+            </h1>
+            <p class="text-secondary mb-0">Resultado dos filtros selecionados.</p>
         </div>
-
-        <?php if ($erro !== ''): ?>
-
-            <div class="alert alert-danger">
-                <?= htmlspecialchars($erro, ENT_QUOTES, 'UTF-8') ?>
-            </div>
-
-        <?php elseif ($tipo === 'carga'): ?>
-
-            <div class="row g-3 mb-4">
-
-                <div class="col-md-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <p class="text-secondary mb-1">
-                                Total de cargas
-                            </p>
-
-                            <h2 class="h3 mb-0">
-                                <?= $totalCargas ?>
-                            </h2>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <p class="text-secondary mb-1">
-                                Peso total
-                            </p>
-
-                            <h2 class="h3 mb-0">
-                                <?= number_format(
-                                    $pesoTotal,
-                                    2,
-                                    ',',
-                                    '.'
-                                ) ?> kg
-                            </h2>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-
-                    <div class="table-responsive">
-
-                        <table class="table table-hover align-middle mb-0">
-
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Carga</th>
-                                    <th>Data do transporte</th>
-                                    <th>Peso</th>
-                                    <th>Trem</th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-
-                                <?php if (count($cargas) > 0): ?>
-
-                                    <?php foreach ($cargas as $carga): ?>
-
-                                        <tr>
-                                            <td class="fw-semibold">
-                                                <?= htmlspecialchars(
-                                                    $carga['nome_carga'],
-                                                    ENT_QUOTES,
-                                                    'UTF-8'
-                                                ) ?>
-                                            </td>
-
-                                            <td>
-                                                <?= date(
-                                                    'd/m/Y',
-                                                    strtotime($carga['data_transporte'])
-                                                ) ?>
-                                            </td>
-
-                                            <td>
-                                                <?= number_format(
-                                                    (float) $carga['peso'],
-                                                    2,
-                                                    ',',
-                                                    '.'
-                                                ) ?> kg
-                                            </td>
-
-                                            <td>
-                                                <?= htmlspecialchars(
-                                                    $carga['prefixo'],
-                                                    ENT_QUOTES,
-                                                    'UTF-8'
-                                                ) ?>
-                                            </td>
-                                        </tr>
-
-                                    <?php endforeach; ?>
-
-                                <?php else: ?>
-
-                                    <tr>
-                                        <td
-                                            colspan="4"
-                                            class="text-center text-secondary py-4">
-                                            Nenhuma carga encontrada para os
-                                            filtros selecionados.
-                                        </td>
-                                    </tr>
-
-                                <?php endif; ?>
-
-                            </tbody>
-
-                        </table>
-
-                    </div>
-
-                </div>
-            </div>
-
-        <?php elseif ($tipo === 'eficiencia'): ?>
-
-            <div class="row g-3 mb-4">
-
-                <div class="col-md-6 col-xl-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <p class="text-secondary mb-1">Total de viagens</p>
-                            <h2 class="h3 mb-0"><?= $totalRotas ?></h2>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-xl-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <p class="text-secondary mb-1">Viagens concluídas</p>
-                            <h2 class="h3 mb-0"><?= $rotasConcluidas ?></h2>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-xl-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <p class="text-secondary mb-1">Não concluídas</p>
-                            <h2 class="h3 mb-0"><?= $rotasNaoConcluidas ?></h2>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 col-xl-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <p class="text-secondary mb-1">Taxa de conclusão</p>
-                            <h2 class="h3 mb-0">
-                                <?= number_format(
-                                    $taxaConclusao,
-                                    1,
-                                    ',',
-                                    '.'
-                                ) ?>%
-                            </h2>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-
-                    <h2 class="h5 mb-3">Viagens registradas</h2>
-
-                    <div class="table-responsive">
-
-                        <table class="table table-hover align-middle mb-0">
-
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Origem</th>
-                                    <th>Destino</th>
-                                    <th>Data</th>
-                                    <th>Partida</th>
-                                    <th>Chegada</th>
-                                    <th>Status</th>
-                                    <th>Trem</th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-
-                                <?php if (count($rotas) > 0): ?>
-
-                                    <?php foreach ($rotas as $rota): ?>
-
-                                        <tr>
-                                            <td>
-                                                <?= htmlspecialchars(
-                                                    $rota['origem'],
-                                                    ENT_QUOTES,
-                                                    'UTF-8'
-                                                ) ?>
-                                            </td>
-
-                                            <td>
-                                                <?= htmlspecialchars(
-                                                    $rota['destino'],
-                                                    ENT_QUOTES,
-                                                    'UTF-8'
-                                                ) ?>
-                                            </td>
-
-                                            <td>
-                                                <?= date(
-                                                    'd/m/Y',
-                                                    strtotime($rota['data_viagem'])
-                                                ) ?>
-                                            </td>
-
-                                            <td>
-                                                <?= $rota['hora_partida']
-                                                    ? htmlspecialchars(
-                                                        substr($rota['hora_partida'], 0, 5),
-                                                        ENT_QUOTES,
-                                                        'UTF-8'
-                                                    )
-                                                    : '—' ?>
-                                            </td>
-
-                                            <td>
-                                                <?= $rota['hora_chegada']
-                                                    ? htmlspecialchars(
-                                                        substr($rota['hora_chegada'], 0, 5),
-                                                        ENT_QUOTES,
-                                                        'UTF-8'
-                                                    )
-                                                    : '—' ?>
-                                            </td>
-
-                                            <td>
-                                                <?= htmlspecialchars(
-                                                    $rota['status'],
-                                                    ENT_QUOTES,
-                                                    'UTF-8'
-                                                ) ?>
-                                            </td>
-
-                                            <td>
-                                                <?= htmlspecialchars(
-                                                    $rota['prefixo'],
-                                                    ENT_QUOTES,
-                                                    'UTF-8'
-                                                ) ?>
-                                            </td>
-                                        </tr>
-
-                                    <?php endforeach; ?>
-
-                                <?php else: ?>
-
-                                    <tr>
-                                        <td
-                                            colspan="7"
-                                            class="text-center text-secondary py-4">
-                                            Nenhuma viagem encontrada para os
-                                            filtros selecionados.
-                                        </td>
-                                    </tr>
-
-                                <?php endif; ?>
-
-                            </tbody>
-
-                        </table>
-
-                    </div>
-
-                </div>
-            </div>
-
-        <?php else: ?>
-
-            <div class="alert alert-info">
-                A consulta para o relatório de
-                <?= htmlspecialchars(
-                    $tiposPermitidos[$tipo],
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>
-                ainda precisa ser implementada.
-            </div>
-
-        <?php endif; ?>
-
-        <div class="d-flex flex-wrap gap-2 mt-4">
-
-            <a href="gera_relatorio.php" class="btn btn-primary">
-                <i class="bi bi-funnel me-1"></i>
-                Novo relatório
-            </a>
-
-            <button
-                type="button"
-                class="btn btn-outline-secondary"
-                onclick="window.print()">
-                <i class="bi bi-printer me-1"></i>
-                Imprimir
-            </button>
-
-        </div>
-
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <?php if ($erro !== ''): ?>
+
+        <div class="alert alert-danger">
+            <?= htmlspecialchars($erro, ENT_QUOTES, 'UTF-8') ?>
+        </div>
+
+    <?php elseif ($tipo === 'passagens'): ?>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary mb-1">Total de passagens</p>
+                        <h2 class="h3 mb-0"><?= $totalPassagens ?></h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary mb-1">Total de passageiros</p>
+                        <h2 class="h3 mb-0"><?= $totalPassageiros ?></h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary mb-1">Valor arrecadado</p>
+                        <h2 class="h3 mb-0">R$ <?= number_format($valorArrecadado, 2, ',', '.') ?></h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Destinos mais comprados</h2>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Destino ou lugar</th>
+                                <th>Quantidade de passagens</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($destinos): ?>
+                                <?php foreach ($destinos as $destino): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($destino['destino'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= (int) $destino['quantidade'] ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="2" class="text-center text-secondary py-4">
+                                        Nenhum destino encontrado para os filtros selecionados.
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Tipos de passagem</h2>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Quantidade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($tiposTicket): ?>
+                                <?php foreach ($tiposTicket as $item): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($item['tipo_ticket'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= (int) $item['quantidade'] ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="2" class="text-center text-secondary py-4">
+                                        Nenhum tipo de passagem encontrado para os filtros selecionados.
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Passagens registradas</h2>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data</th>
+                                <th>Origem</th>
+                                <th>Destino</th>
+                                <th>Passageiros</th>
+                                <th>Quantidade</th>
+                                <th>Valor unitário</th>
+                                <th>Pagamento</th>
+                                <th>Tipo</th>
+                                <th>Trem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($passagens): ?>
+                                <?php foreach ($passagens as $passagem): ?>
+                                    <tr>
+                                        <td>
+                                            <?= !empty($passagem['data_hora_ticket'])
+                                                ? date('d/m/Y H:i', strtotime($passagem['data_hora_ticket']))
+                                                : '—' ?>
+                                        </td>
+                                        <td><?= htmlspecialchars($passagem['local_partida'] ?? '—', ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars($passagem['local_destino'] ?? '—', ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= (int) $passagem['quantidade_passageiros'] ?></td>
+                                        <td><?= (int) $passagem['quantidade_tickets'] ?></td>
+                                        <td>R$ <?= number_format((float) $passagem['valor_ticket'], 2, ',', '.') ?></td>
+                                        <td><?= htmlspecialchars($passagem['forma_pagamento'] ?? '—', ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars($passagem['tipo_ticket'] ?? '—', ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars($passagem['prefixo'] ?? '—', ENT_QUOTES, 'UTF-8') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="9" class="text-center text-secondary py-4">
+                                        Nenhuma passagem encontrada para os filtros selecionados.
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    <?php elseif ($tipo === 'carga'): ?>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary mb-1">Total de cargas</p>
+                        <h2 class="h3 mb-0"><?= $totalCargas ?></h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary mb-1">Peso total</p>
+                        <h2 class="h3 mb-0"><?= number_format($pesoTotal, 2, ',', '.') ?> kg</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Carga</th>
+                                <th>Data do transporte</th>
+                                <th>Peso</th>
+                                <th>Trem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($cargas): ?>
+                                <?php foreach ($cargas as $carga): ?>
+                                    <tr>
+                                        <td class="fw-semibold"><?= htmlspecialchars($carga['nome_carga'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= date('d/m/Y', strtotime($carga['data_transporte'])) ?></td>
+                                        <td><?= number_format((float) $carga['peso'], 2, ',', '.') ?> kg</td>
+                                        <td><?= htmlspecialchars($carga['prefixo'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="4" class="text-center text-secondary py-4">
+                                        Nenhuma carga encontrada para os filtros selecionados.
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    <?php elseif ($tipo === 'operacional'): ?>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary mb-1">Total de viagens</p>
+                        <h2 class="h3 mb-0"><?= $totalRotas ?></h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary mb-1">Viagens concluídas</p>
+                        <h2 class="h3 mb-0"><?= $rotasConcluidas ?></h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary mb-1">Não concluídas</p>
+                        <h2 class="h3 mb-0"><?= $rotasNaoConcluidas ?></h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary mb-1">Taxa de conclusão</p>
+                        <h2 class="h3 mb-0"><?= number_format($taxaConclusao, 1, ',', '.') ?>%</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Viagens registradas</h2>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Origem</th>
+                                <th>Destino</th>
+                                <th>Data</th>
+                                <th>Partida</th>
+                                <th>Chegada</th>
+                                <th>Status</th>
+                                <th>Trem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($rotas): ?>
+                                <?php foreach ($rotas as $rota): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($rota['origem'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars($rota['destino'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= date('d/m/Y', strtotime($rota['data_viagem'])) ?></td>
+                                        <td><?= !empty($rota['hora_partida']) ? htmlspecialchars(substr($rota['hora_partida'], 0, 5), ENT_QUOTES, 'UTF-8') : '—' ?></td>
+                                        <td><?= !empty($rota['hora_chegada']) ? htmlspecialchars(substr($rota['hora_chegada'], 0, 5), ENT_QUOTES, 'UTF-8') : '—' ?></td>
+                                        <td><?= htmlspecialchars($rota['status'] ?? '', ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars($rota['prefixo'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="7" class="text-center text-secondary py-4">
+                                        Nenhuma viagem encontrada para os filtros selecionados.
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    <?php elseif ($tipo === 'manutencao'): ?>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary mb-1">Total de manutenções cadastradas</p>
+                        <h2 class="h3 mb-0"><?= $totalManutencoes ?></h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary mb-1">Manutenções concluídas</p>
+                        <h2 class="h3 mb-0"><?= $manutencoesConcluidas ?></h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary mb-1">Manutenções em andamento</p>
+                        <h2 class="h3 mb-0"><?= $manutencoesEmAndamento ?></h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <p class="text-secondary mb-1">Percentual de conclusão</p>
+                        <h2 class="h3 mb-0"><?= number_format($taxaConclusaoManutencao, 1, ',', '.') ?>%</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Manutenções cadastradas</h2>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Descrição</th>
+                                <th>Trem</th>
+                                <th>Data de início</th>
+                                <th>Data de conclusão</th>
+                                <th>Status</th>
+                                <th>Observações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ($manutencoes): ?>
+                                <?php foreach ($manutencoes as $manutencao): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($manutencao['descricao'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars($manutencao['prefixo'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= date('d/m/Y', strtotime($manutencao['data_inicio'])) ?></td>
+                                        <td>
+                                            <?= !empty($manutencao['data_conclusao'])
+                                                ? date('d/m/Y', strtotime($manutencao['data_conclusao']))
+                                                : '—' ?>
+                                        </td>
+                                        <td>
+                                            <?php if ($manutencao['status'] === 'Concluída'): ?>
+                                                <span class="badge text-bg-success">Concluída</span>
+                                            <?php else: ?>
+                                                <span class="badge text-bg-warning">Em andamento</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><?= htmlspecialchars($manutencao['observacoes'] ?? '—', ENT_QUOTES, 'UTF-8') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="6" class="text-center text-secondary py-4">
+                                        Nenhuma manutenção encontrada para os filtros selecionados.
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    <?php endif; ?>
+
+    <div class="d-flex flex-wrap gap-2 mt-4">
+        <a href="gera-relatorio.php" class="btn btn-primary">
+            <i class="bi bi-funnel me-1"></i>
+            Novo relatório
+        </a>
+
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i>
+            Imprimir
+        </button>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
-
 </html>
