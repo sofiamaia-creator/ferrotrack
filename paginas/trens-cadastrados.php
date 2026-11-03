@@ -3,6 +3,7 @@
 require_once "../assets/php/proteger.php";
 require_once "../assets/php/permissao.php";
 require_once "../assets/php/cabecalho.php";
+require_once "../assets/php/menu.php";
 require_once "../assets/php/conexao.php";
 
 if (!temPapel(['gestor'])) {
@@ -19,20 +20,24 @@ $capacidade = $_POST['capacidade'] ?? '';
 $ultima_inspecao = $_POST['ultima_inspecao'] ?? '';
 
 $erros = [];
-$mensagem = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['excluir_id'])) {
-    $excluir_id = (int) $_POST['excluir_id'];
+    $excluir_id = (int)$_POST['excluir_id'];
 
     if ($excluir_id > 0) {
         $stmt = $conexao->prepare('DELETE FROM trens WHERE id_trem = ?');
         $stmt->bind_param('i', $excluir_id);
-        $stmt->execute();
-        $mensagem = 'Trem excluído com sucesso.';
+
+        if ($stmt->execute()) {
+            header('Location: trens-cadastrados.php?sucesso=excluido');
+            exit;
+        } else {
+            $erros[] = 'Não foi possível excluir o trem. Verifique se existem registros relacionados a ele.';
+        }
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['excluir_id'])) {
     $ano = (int)$ano;
     $capacidade = (float)$capacidade;
 
@@ -83,7 +88,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $stmt->execute();
-
     $resultado_prefixo = $stmt->get_result();
 
     if ($resultado_prefixo->num_rows > 0) {
@@ -134,7 +138,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
             if ($stmt->execute()) {
-                $id_trem = $conexao->insert_id;
                 header('Location: trens-cadastrados.php?sucesso=cadastrado');
                 exit;
             }
@@ -197,7 +200,7 @@ $sql .= ' ORDER BY prefixo';
 $stmt = $conexao->prepare($sql);
 
 if (!$stmt) {
-    die("Erro ao preparar consulta: " . $conexao->error);
+    die('Erro ao preparar consulta: ' . $conexao->error);
 }
 
 if (!empty($valores)) {
@@ -205,7 +208,6 @@ if (!empty($valores)) {
 }
 
 $stmt->execute();
-
 $resultado = $stmt->get_result();
 
 $trens = [];
@@ -225,28 +227,59 @@ while ($trem = $resultado->fetch_assoc()) {
 
     <title>Trens Cadastrados — Ferrovias</title>
 
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    >
-
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-        rel="stylesheet"
-    >
-
-    <link
-        rel="stylesheet"
-        href="../paginas/cabecalho.css"
-    >
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="../paginas/cabecalho.css">
 
     <style>
+        .layout-principal {
+            display: flex;
+            align-items: flex-start;
+            min-height: calc(100vh - 64px);
+        }
+
+        .layout-principal > aside {
+            flex: 0 0 25%;
+            max-width: 25%;
+            min-width: 0;
+            height: calc(100vh - 64px);
+            overflow-y: auto;
+            position: sticky;
+            top: 64px;
+            background-color: #fff;
+            border-right: 1px solid #dee2e6;
+        }
+
+        .conteudo-principal {
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 24px;
+        }
+
         .tabela-desktop {
             display: block;
         }
 
         .lista-mobile {
             display: none;
+        }
+
+        @media (min-width: 1200px) {
+            .layout-principal > aside {
+                flex-basis: 16.666667%;
+                max-width: 16.666667%;
+            }
+        }
+
+        @media (max-width: 991.98px) {
+            .layout-principal > aside {
+                display: none !important;
+            }
+
+            .conteudo-principal {
+                width: 100%;
+                padding: 16px;
+            }
         }
 
         @media (max-width: 767.98px) {
@@ -265,556 +298,13 @@ while ($trem = $resultado->fetch_assoc()) {
 
 <?php gerarCabecalho(); ?>
 
-<nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
+<div class="container-fluid px-0">
 
-    <div class="container-fluid gap-2">
+    <div class="layout-principal">
 
-        <button
-            class="btn btn-outline-secondary d-lg-none"
-            type="button"
-            data-bs-toggle="offcanvas"
-            data-bs-target="#menuLateral"
-            aria-controls="menuLateral"
-            aria-label="Abrir menu"
-        >
-            <i class="bi bi-list fs-4"></i>
-        </button>
+        <?php renderizarMenu(); ?>
 
-        <a
-            class="navbar-brand d-flex align-items-center gap-2 me-auto"
-            href="painel-gestor.php"
-        >
-            <img
-                src="../assets/img/logo.png"
-                alt="Ferrovias"
-                width="32"
-                height="32"
-                class="object-fit-contain"
-            >
-
-            <span class="fw-semibold">
-                Ferrovias
-            </span>
-        </a>
-
-        <div class="d-flex align-items-center gap-1">
-
-           
-        
-
-          
-           
-
-
-            <button class="btn btn-sm btn-outline-secondary border-0 position-relative" type="button" title="Notificações" aria-label="Notificações" onclick="window.location.href='alertas.php'">
-          <i class="bi bi-bell fs-5"></i>
-          <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
-        </button>
-            
-
-            <div class="vr mx-2 d-none d-sm-block"></div>
-
-            <a
-                class="btn btn-sm btn-outline-primary d-none d-sm-inline-flex align-items-center gap-1"
-                href="perfil.php"
-            >
-                <i class="bi bi-person-circle"></i>
-
-                <span class="d-none d-md-inline">
-                    Minha conta
-                </span>
-            </a>
-
-        </div>
-
-    </div>
-
-</nav>
-
-<div class="container-fluid">
-
-    <div class="row">
-
-        <aside
-            class="col-lg-3 col-xl-2 d-none d-lg-block bg-white border-end vh-100 position-sticky top-0 p-0"
-        >
-
-            <nav class="p-3 overflow-auto h-100">
-
-                <ul class="nav nav-pills flex-column">
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">
-                            Painéis
-                        </span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="painel-gestor.php"
-                        >
-                            <i class="bi bi-speedometer2"></i>
-                            <span>Painel do Gestor</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="painel-maquinista.php"
-                        >
-                            <i class="bi bi-person-badge"></i>
-                            <span>Painel do Maquinista</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="painel-cliente.php"
-                        >
-                            <i class="bi bi-person"></i>
-                            <span>Painel do Cliente</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="dashboard.php"
-                        >
-                            <i class="bi bi-grid-1x2"></i>
-                            <span>Dashboard Geral</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">
-                            Operação
-                        </span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="gestao-rotas.php"
-                        >
-                            <i class="bi bi-signpost-split"></i>
-                            <span>Gestão de Rotas</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="adicionar-rota.php"
-                        >
-                            <i class="bi bi-plus-square"></i>
-                            <span>Adicionar Rota</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="monitoramento-cargas.php"
-                        >
-                            <i class="bi bi-box-seam"></i>
-                            <span>Monitoramento de Cargas</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="trens.php"
-                        >
-                            <i class="bi bi-train-front"></i>
-                            <span>Trens</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 active bg-primary text-white"
-                            href="trens-cadastrados.php"
-                            aria-current="page"
-                        >
-                            <i class="bi bi-list-ul"></i>
-                            <span>Trens Cadastrados</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="alertas.php"
-                        >
-                            <i class="bi bi-bell"></i>
-                            <span>Alertas e Notificações</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">
-                            Sensores
-                        </span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="sensores.php"
-                        >
-                            <i class="bi bi-cpu"></i>
-                            <span>Gerenciar Sensores</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="adicionar-sensor.php"
-                        >
-                            <i class="bi bi-plus-circle"></i>
-                            <span>Adicionar Sensor</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="editar-sensor.php"
-                        >
-                            <i class="bi bi-pencil"></i>
-                            <span>Editar Sensor</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="remover-sensor.php"
-                        >
-                            <i class="bi bi-dash-circle"></i>
-                            <span>Remover Sensor</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">
-                            Relatórios
-                        </span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="relatorios.php"
-                        >
-                            <i class="bi bi-file-earmark-bar-graph"></i>
-                            <span>Relatórios</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">
-                            Usuários
-                        </span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="usuarios.php"
-                        >
-                            <i class="bi bi-people"></i>
-                            <span>Status de Usuários</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="gerenciamento-usuarios.php"
-                        >
-                            <i class="bi bi-person-gear"></i>
-                            <span>Gerenciar Usuários</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="adicionar-usuario.php"
-                        >
-                            <i class="bi bi-person-plus"></i>
-                            <span>Adicionar Usuário</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="perfil.php"
-                        >
-                            <i class="bi bi-person-circle"></i>
-                            <span>Meu Perfil</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">
-                            Cliente
-                        </span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="pagamento.php"
-                        >
-                            <i class="bi bi-credit-card"></i>
-                            <span>Pagamento</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a
-                            class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body"
-                            href="passagens.php"
-                        >
-                            <i class="bi bi-ticket-perforated"></i>
-                            <span>Passagens</span>
-                        </a>
-                    </li>
-
-                </ul>
-
-            </nav>
-
-        </aside>
-
-        <div
-            class="offcanvas offcanvas-start d-lg-none"
-            tabindex="-1"
-            id="menuLateral"
-            aria-labelledby="tituloMenu"
-        >
-
-            <div class="offcanvas-header border-bottom">
-
-                <h5
-                    class="offcanvas-title"
-                    id="tituloMenu"
-                >
-                    Menu
-                </h5>
-
-                <button
-                    type="button"
-                    class="btn-close"
-                    data-bs-dismiss="offcanvas"
-                    aria-label="Fechar"
-                ></button>
-
-            </div>
-
-            <div class="offcanvas-body">
-
-                <ul class="nav nav-pills flex-column">
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">
-                            Painéis
-                        </span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="painel-gestor.php">
-                            <i class="bi bi-speedometer2 me-2"></i>
-                            Painel do Gestor
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="painel-maquinista.php">
-                            <i class="bi bi-person-badge me-2"></i>
-                            Painel do Maquinista
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="painel-cliente.php">
-                            <i class="bi bi-person me-2"></i>
-                            Painel do Cliente
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="dashboard.php">
-                            <i class="bi bi-grid-1x2 me-2"></i>
-                            Dashboard Geral
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">
-                            Operação
-                        </span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="gestao-rotas.php">
-                            <i class="bi bi-signpost-split me-2"></i>
-                            Gestão de Rotas
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="adicionar-rota.php">
-                            <i class="bi bi-plus-square me-2"></i>
-                            Adicionar Rota
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="monitoramento-cargas.php">
-                            <i class="bi bi-box-seam me-2"></i>
-                            Monitoramento de Cargas
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="trens.php">
-                            <i class="bi bi-train-front me-2"></i>
-                            Trens
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link active bg-primary text-white" href="trens-cadastrados.php">
-                            <i class="bi bi-list-ul me-2"></i>
-                            Trens Cadastrados
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="alertas.php">
-                            <i class="bi bi-bell me-2"></i>
-                            Alertas e Notificações
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">
-                            Sensores
-                        </span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="sensores.php">
-                            <i class="bi bi-cpu me-2"></i>
-                            Gerenciar Sensores
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="adicionar-sensor.php">
-                            <i class="bi bi-plus-circle me-2"></i>
-                            Adicionar Sensor
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="editar-sensor.php">
-                            <i class="bi bi-pencil me-2"></i>
-                            Editar Sensor
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="remover-sensor.php">
-                            <i class="bi bi-dash-circle me-2"></i>
-                            Remover Sensor
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">
-                            Relatórios
-                        </span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="relatorios.php">
-                            <i class="bi bi-file-earmark-bar-graph me-2"></i>
-                            Relatórios
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">
-                            Usuários
-                        </span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="usuarios.php">
-                            <i class="bi bi-people me-2"></i>
-                            Status de Usuários
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="gerenciamento-usuarios.php">
-                            <i class="bi bi-person-gear me-2"></i>
-                            Gerenciar Usuários
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="adicionar-usuario.php">
-                            <i class="bi bi-person-plus me-2"></i>
-                            Adicionar Usuário
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="perfil.php">
-                            <i class="bi bi-person-circle me-2"></i>
-                            Meu Perfil
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">
-                            Cliente
-                        </span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="pagamento.php">
-                            <i class="bi bi-credit-card me-2"></i>
-                            Pagamento
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link text-body" href="passagens.php">
-                            <i class="bi bi-ticket-perforated me-2"></i>
-                            Passagens
-                        </a>
-                    </li>
-
-                </ul>
-
-            </div>
-
-        </div>
-
-        <main class="col-12 col-lg-9 col-xl-10 py-4 px-3 px-md-4">
+        <main class="conteudo-principal">
 
             <?php if ($sucesso === 'cadastrado'): ?>
                 <div class="alert alert-success">
@@ -823,6 +313,10 @@ while ($trem = $resultado->fetch_assoc()) {
             <?php elseif ($sucesso === 'editado'): ?>
                 <div class="alert alert-success">
                     Trem editado com sucesso.
+                </div>
+            <?php elseif ($sucesso === 'excluido'): ?>
+                <div class="alert alert-success">
+                    Trem excluído com sucesso.
                 </div>
             <?php endif; ?>
 
@@ -837,6 +331,7 @@ while ($trem = $resultado->fetch_assoc()) {
             <?php endif; ?>
 
             <div class="card border-0 shadow-sm mb-3">
+
                 <div class="card-header bg-white border-0 pt-3">
                     <h2 class="h5 mb-0">
                         <?= $id_trem > 0 ? 'Editar trem' : 'Cadastrar trem' ?>
@@ -844,8 +339,10 @@ while ($trem = $resultado->fetch_assoc()) {
                 </div>
 
                 <div class="card-body">
+
                     <form method="POST" class="row g-3">
-                        <input type="hidden" name="id_trem" value="<?= htmlspecialchars($id_trem) ?>">
+
+                        <input type="hidden" name="id_trem" value="<?= htmlspecialchars((string)$id_trem) ?>">
 
                         <div class="col-12 col-md-4">
                             <label for="prefixo" class="form-label">Prefixo</label>
@@ -883,7 +380,7 @@ while ($trem = $resultado->fetch_assoc()) {
                                 name="ano"
                                 min="1900"
                                 max="2100"
-                                value="<?= htmlspecialchars($ano) ?>"
+                                value="<?= htmlspecialchars((string)$ano) ?>"
                                 required
                             >
                         </div>
@@ -907,7 +404,7 @@ while ($trem = $resultado->fetch_assoc()) {
                                 name="capacidade"
                                 min="0.01"
                                 step="0.01"
-                                value="<?= htmlspecialchars($capacidade) ?>"
+                                value="<?= htmlspecialchars((string)$capacidade) ?>"
                                 required
                             >
                         </div>
@@ -924,6 +421,7 @@ while ($trem = $resultado->fetch_assoc()) {
                         </div>
 
                         <div class="col-12">
+
                             <button type="submit" class="btn btn-primary">
                                 <?= $id_trem > 0 ? 'Salvar alterações' : 'Cadastrar trem' ?>
                             </button>
@@ -933,33 +431,26 @@ while ($trem = $resultado->fetch_assoc()) {
                                     Cancelar
                                 </a>
                             <?php endif; ?>
+
                         </div>
+
                     </form>
+
                 </div>
+
             </div>
 
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
 
                 <div class="d-flex align-items-center gap-2">
 
-                    <a
-                        class="btn btn-outline-secondary btn-sm"
-                        href="trens.php"
-                        aria-label="Voltar"
-                    >
+                    <a class="btn btn-outline-secondary btn-sm" href="trens.php" aria-label="Voltar">
                         <i class="bi bi-arrow-left"></i>
                     </a>
 
                     <div>
-
-                        <h1 class="h3 mb-0">
-                            Trens Cadastrados
-                        </h1>
-
-                        <p class="text-secondary mb-0 small">
-                            Frota registrada no sistema
-                        </p>
-
+                        <h1 class="h3 mb-0">Trens Cadastrados</h1>
+                        <p class="text-secondary mb-0 small">Frota registrada no sistema</p>
                     </div>
 
                 </div>
@@ -970,20 +461,10 @@ while ($trem = $resultado->fetch_assoc()) {
 
                 <div class="card-body">
 
-                    <form
-                        method="GET"
-                        class="row g-3"
-                    >
+                    <form method="GET" class="row g-3">
 
                         <div class="col-12 col-md-6">
-
-                            <label
-                                for="busca"
-                                class="form-label"
-                            >
-                                Buscar trem
-                            </label>
-
+                            <label for="busca" class="form-label">Buscar trem</label>
                             <input
                                 type="text"
                                 class="form-control"
@@ -992,66 +473,23 @@ while ($trem = $resultado->fetch_assoc()) {
                                 placeholder="Digite o prefixo ou modelo"
                                 value="<?= htmlspecialchars($busca) ?>"
                             >
-
                         </div>
 
                         <div class="col-12 col-md-4">
-
-                            <label
-                                for="status"
-                                class="form-label"
-                            >
-                                Status
-                            </label>
-
-                            <select
-                                class="form-select"
-                                id="status"
-                                name="status"
-                            >
-
-                                <option value="">
-                                    Todos os status
-                                </option>
-
-                                <option
-                                    value="Ativo"
-                                    <?= $status === 'Ativo' ? 'selected' : '' ?>
-                                >
-                                    Ativo
-                                </option>
-
-                                <option
-                                    value="Em manutenção"
-                                    <?= $status === 'Em manutenção' ? 'selected' : '' ?>
-                                >
-                                    Em manutenção
-                                </option>
-
-                                <option
-                                    value="Inativo"
-                                    <?= $status === 'Inativo' ? 'selected' : '' ?>
-                                >
-                                    Inativo
-                                </option>
-
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="">Todos os status</option>
+                                <option value="Ativo" <?= $status === 'Ativo' ? 'selected' : '' ?>>Ativo</option>
+                                <option value="Em manutenção" <?= $status === 'Em manutenção' ? 'selected' : '' ?>>Em manutenção</option>
+                                <option value="Inativo" <?= $status === 'Inativo' ? 'selected' : '' ?>>Inativo</option>
                             </select>
-
                         </div>
 
                         <div class="col-12 col-md-2 d-flex align-items-end">
-
-                            <button
-                                type="submit"
-                                class="btn btn-primary w-100"
-                            >
-
+                            <button type="submit" class="btn btn-primary w-100">
                                 <i class="bi bi-search me-1"></i>
-
                                 Buscar
-
                             </button>
-
                         </div>
 
                     </form>
@@ -1063,11 +501,7 @@ while ($trem = $resultado->fetch_assoc()) {
             <div class="card border-0 shadow-sm">
 
                 <div class="card-header bg-white border-0 pt-3">
-
-                    <h2 class="h5 mb-0">
-                        Frota registrada
-                    </h2>
-
+                    <h2 class="h5 mb-0">Frota registrada</h2>
                 </div>
 
                 <div class="card-body">
@@ -1079,9 +513,7 @@ while ($trem = $resultado->fetch_assoc()) {
                             <table class="table table-hover align-middle mb-0">
 
                                 <thead class="table-light">
-
                                     <tr>
-
                                         <th>Prefixo</th>
                                         <th>Modelo</th>
                                         <th>Ano</th>
@@ -1089,10 +521,7 @@ while ($trem = $resultado->fetch_assoc()) {
                                         <th>Capacidade</th>
                                         <th>Última inspeção</th>
                                         <th>Ações</th>
-                                        <th>Ações</th>
-
                                     </tr>
-
                                 </thead>
 
                                 <tbody>
@@ -1100,6 +529,16 @@ while ($trem = $resultado->fetch_assoc()) {
                                     <?php if (count($trens) > 0): ?>
 
                                         <?php foreach ($trens as $trem): ?>
+
+                                            <?php
+                                            if ($trem['status'] === 'Ativo') {
+                                                $classeStatus = 'text-bg-success';
+                                            } elseif ($trem['status'] === 'Em manutenção') {
+                                                $classeStatus = 'text-bg-warning';
+                                            } else {
+                                                $classeStatus = 'text-bg-danger';
+                                            }
+                                            ?>
 
                                             <tr>
 
@@ -1116,23 +555,9 @@ while ($trem = $resultado->fetch_assoc()) {
                                                 </td>
 
                                                 <td>
-
-                                                    <?php
-
-                                                    if ($trem['status'] === 'Ativo') {
-                                                        $classeStatus = 'text-bg-success';
-                                                    } elseif ($trem['status'] === 'Em manutenção') {
-                                                        $classeStatus = 'text-bg-warning';
-                                                    } else {
-                                                        $classeStatus = 'text-bg-danger';
-                                                    }
-
-                                                    ?>
-
                                                     <span class="badge <?= $classeStatus ?>">
                                                         <?= htmlspecialchars($trem['status']) ?>
                                                     </span>
-
                                                 </td>
 
                                                 <td>
@@ -1140,42 +565,42 @@ while ($trem = $resultado->fetch_assoc()) {
                                                 </td>
 
                                                 <td>
-
                                                     <?php if (!empty($trem['ultima_inspecao'])): ?>
-
                                                         <?= htmlspecialchars($trem['ultima_inspecao']) ?>
-
                                                     <?php else: ?>
-
-                                                        <span class="text-secondary">
-                                                            Não realizada
-                                                        </span>
-
+                                                        <span class="text-secondary">Não realizada</span>
                                                     <?php endif; ?>
-
                                                 </td>
 
                                                 <td>
-                                                    <a
-                                                        href="trens-cadastrados.php?id_trem=<?= (int)$trem['id_trem'] ?>"
-                                                        class="btn btn-sm btn-outline-primary"
-                                                    >
-                                                        <i class="bi bi-pencil"></i>
-                                                        Editar
-                                                    </a>
-                                                </td>
+                                                    <div class="d-flex gap-2">
 
-                                                <td>
-                                                    <a href="trens-cadastrados.php?id_trem=<?= $trem['id_trem'] ?>" class="btn btn-sm btn-outline-primary">
-                                                        Editar
-                                                    </a>
+                                                        <a
+                                                            href="trens-cadastrados.php?id_trem=<?= (int)$trem['id_trem'] ?>"
+                                                            class="btn btn-sm btn-outline-primary"
+                                                        >
+                                                            <i class="bi bi-pencil"></i>
+                                                            Editar
+                                                        </a>
 
-                                                    <form method="POST" class="d-inline" onsubmit="return confirm('Confirma a exclusão?');">
-                                                        <input type="hidden" name="excluir_id" value="<?= $trem['id_trem'] ?>">
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                            Excluir
-                                                        </button>
-                                                    </form>
+                                                        <form
+                                                            method="POST"
+                                                            class="d-inline"
+                                                            onsubmit="return confirm('Confirma a exclusão?');"
+                                                        >
+                                                            <input
+                                                                type="hidden"
+                                                                name="excluir_id"
+                                                                value="<?= (int)$trem['id_trem'] ?>"
+                                                            >
+
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                                <i class="bi bi-trash"></i>
+                                                                Excluir
+                                                            </button>
+                                                        </form>
+
+                                                    </div>
                                                 </td>
 
                                             </tr>
@@ -1185,14 +610,9 @@ while ($trem = $resultado->fetch_assoc()) {
                                     <?php else: ?>
 
                                         <tr>
-
-                                            <td
-                                                colspan="7"
-                                                class="text-center text-secondary py-4"
-                                            >
+                                            <td colspan="7" class="text-center text-secondary py-4">
                                                 Nenhum trem encontrado.
                                             </td>
-
                                         </tr>
 
                                     <?php endif; ?>
@@ -1214,7 +634,6 @@ while ($trem = $resultado->fetch_assoc()) {
                                 <?php foreach ($trens as $trem): ?>
 
                                     <?php
-
                                     if ($trem['status'] === 'Ativo') {
                                         $classeStatus = 'text-bg-success';
                                     } elseif ($trem['status'] === 'Em manutenção') {
@@ -1222,7 +641,6 @@ while ($trem = $resultado->fetch_assoc()) {
                                     } else {
                                         $classeStatus = 'text-bg-danger';
                                     }
-
                                     ?>
 
                                     <div class="card border">
@@ -1232,7 +650,6 @@ while ($trem = $resultado->fetch_assoc()) {
                                             <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
 
                                                 <div>
-
                                                     <h3 class="h5 mb-1">
                                                         <?= htmlspecialchars($trem['prefixo']) ?>
                                                     </h3>
@@ -1240,7 +657,6 @@ while ($trem = $resultado->fetch_assoc()) {
                                                     <p class="text-secondary mb-0">
                                                         <?= htmlspecialchars($trem['modelo']) ?>
                                                     </p>
-
                                                 </div>
 
                                                 <span class="badge <?= $classeStatus ?>">
@@ -1252,74 +668,52 @@ while ($trem = $resultado->fetch_assoc()) {
                                             <div class="row g-2 small">
 
                                                 <div class="col-6">
-
-                                                    <span class="text-secondary d-block">
-                                                        Ano
-                                                    </span>
-
-                                                    <strong>
-                                                        <?= htmlspecialchars($trem['ano']) ?>
-                                                    </strong>
-
+                                                    <span class="text-secondary d-block">Ano</span>
+                                                    <strong><?= htmlspecialchars($trem['ano']) ?></strong>
                                                 </div>
 
                                                 <div class="col-6">
-
-                                                    <span class="text-secondary d-block">
-                                                        Capacidade
-                                                    </span>
-
-                                                    <strong>
-                                                        <?= htmlspecialchars($trem['capacidade']) ?> t
-                                                    </strong>
-
+                                                    <span class="text-secondary d-block">Capacidade</span>
+                                                    <strong><?= htmlspecialchars($trem['capacidade']) ?> t</strong>
                                                 </div>
 
                                                 <div class="col-12">
-
-                                                    <span class="text-secondary d-block">
-                                                        Última inspeção
-                                                    </span>
-
+                                                    <span class="text-secondary d-block">Última inspeção</span>
                                                     <strong>
-
-                                                        <?php if (!empty($trem['ultima_inspecao'])): ?>
-
-                                                            <?= htmlspecialchars($trem['ultima_inspecao']) ?>
-
-                                                        <?php else: ?>
-
-                                                            Não realizada
-
-                                                        <?php endif; ?>
-
+                                                        <?= !empty($trem['ultima_inspecao'])
+                                                            ? htmlspecialchars($trem['ultima_inspecao'])
+                                                            : 'Não realizada' ?>
                                                     </strong>
-
-                                                </div>
-
-                                                <div class="mt-3">
-                                                    <a
-                                                        href="trens-cadastrados.php?id_trem=<?= (int)$trem['id_trem'] ?>"
-                                                        class="btn btn-sm btn-outline-primary"
-                                                    >
-                                                        <i class="bi bi-pencil"></i>
-                                                        Editar
-                                                    </a>
                                                 </div>
 
                                             </div>
 
                                             <div class="mt-3 d-flex gap-2">
-                                                <a href="trens-cadastrados.php?id_trem=<?= $trem['id_trem'] ?>" class="btn btn-sm btn-outline-primary">
+
+                                                <a
+                                                    href="trens-cadastrados.php?id_trem=<?= (int)$trem['id_trem'] ?>"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                >
+                                                    <i class="bi bi-pencil"></i>
                                                     Editar
                                                 </a>
 
-                                                <form method="POST" onsubmit="return confirm('Confirma a exclusão?');">
-                                                    <input type="hidden" name="excluir_id" value="<?= $trem['id_trem'] ?>">
+                                                <form
+                                                    method="POST"
+                                                    onsubmit="return confirm('Confirma a exclusão?');"
+                                                >
+                                                    <input
+                                                        type="hidden"
+                                                        name="excluir_id"
+                                                        value="<?= (int)$trem['id_trem'] ?>"
+                                                    >
+
                                                     <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                        <i class="bi bi-trash"></i>
                                                         Excluir
                                                     </button>
                                                 </form>
+
                                             </div>
 
                                         </div>
@@ -1350,11 +744,7 @@ while ($trem = $resultado->fetch_assoc()) {
 
 </div>
 
-<script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
-></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
-
 </html>
-

@@ -591,3 +591,63 @@ As funcionalidades documentadas incluem a desativação de contas, a proteção 
 Os testes realizados confirmaram o funcionamento do simulador de leituras e alertas, assim como o fluxo de recuperação de senha. O sistema utiliza mecanismos de controle de acesso, hash de senhas e transações no banco de dados para contribuir com a segurança e a consistência das operações.
 
 A configuração de envio real de e-mails e a validação das pendências listadas permanecem dependentes das necessidades e do escopo de implantação do projeto.
+
+# FerroTrack — Roteiro de testes
+
+## Entrega 4.1 — Fechamento do projeto
+
+Este documento registra os testes executados no FerroTrack. Cada caso apresenta o comportamento esperado, o resultado observado e a situação final.
+
+## 1. Acesso e autenticação
+
+| Nº | O que se testa | Resultado esperado | Obtido | Situação |
+| :---: | :--- | :--- | :--- | :---: |
+| 1 | Login com senha incorreta | O sistema deve impedir o acesso e informar que as credenciais estão incorretas. | O sistema exibiu “Login ou senha incorretos.” e não permitiu o acesso. | Aprovado |
+| 2 | Login de usuário desativado | O sistema deve impedir o acesso mesmo com login e senha corretos. | O sistema impediu o acesso do usuário desativado. | Aprovado |
+| 3 | Acesso a página interna sem estar logado | O sistema deve impedir o acesso e direcionar o usuário para a página de login. | O acesso ao dashboard foi bloqueado e o sistema abriu a página de login. | Aprovado |
+| 4 | Login com dados corretos | O sistema deve autenticar o usuário e permitir o acesso ao dashboard. | O usuário foi autenticado e conseguiu acessar o dashboard. | Aprovado |
+| 5 | Logout e bloqueio após sair | O sistema deve encerrar a sessão e impedir o acesso posterior a páginas internas. | A sessão foi encerrada; ao tentar acessar a página inicial sem autenticação, o sistema apresentou a página de login. | Aprovado |
+| 6 | Recuperação de senha com código válido | O sistema deve validar o código e permitir cadastrar uma nova senha. | O código foi validado, a nova senha foi cadastrada e o login com ela funcionou. | Aprovado |
+| 7 | Recuperação de senha com código inválido | O sistema deve rejeitar o código e impedir a alteração da senha. | O sistema rejeitou o código inválido. | Aprovado |
+
+## 2. Gerenciamento de usuários
+
+| Nº | O que se testa | Resultado esperado | Obtido | Situação |
+| :---: | :--- | :--- | :--- | :---: |
+| 8 | Acesso de gestor ao gerenciamento de usuários | O gestor deve conseguir acessar a página de gerenciamento. | O gestor acessou normalmente a página de gerenciamento de usuários. | Aprovado |
+| 9 | Bloqueio de acesso para cliente ou maquinista | Usuários sem perfil de gestor não devem acessar o gerenciamento de usuários. | O usuário sem perfil de gestor não conseguiu acessar o gerenciamento. | Aprovado |
+| 10 | Desativar outro usuário | O gestor deve conseguir desativar outra conta. | O gestor desativou outro usuário e o status foi alterado para inativo. | Aprovado |
+| 11 | Impedir a desativação da própria conta | O sistema deve impedir que o gestor desative a própria conta. | O sistema bloqueou a tentativa de desativação da própria conta. | Aprovado |
+| 12 | Proteção do último gestor ativo | O sistema deve impedir a desativação quando restar apenas um gestor ativo. | O sistema permitiu desativar um gestor, mas bloqueou a desativação do último gestor ativo. | Aprovado |
+| 13 | Reativar usuário | O gestor deve conseguir reativar uma conta desativada. | O gestor reativou o usuário e o status voltou para ativo. | Aprovado |
+
+## 3. Operação ferroviária e sensores
+
+| Nº | O que se testa | Resultado esperado | Obtido | Situação |
+| :---: | :--- | :--- | :--- | :---: |
+| 14 | Cadastrar um trem | O sistema deve cadastrar o trem e exibi-lo na listagem. | O trem foi cadastrado com sucesso e apareceu na listagem. | Aprovado |
+| 15 | Cadastrar trem com prefixo duplicado | O sistema deve impedir o cadastro de outro trem com o mesmo prefixo. | O sistema informou “Este prefixo já está cadastrado.” e não duplicou o trem. | Aprovado |
+| 16 | Sensores associados aos trens | Os sensores devem aparecer relacionados aos respectivos trens. | Os sensores apareceram associados aos trens corretos. | Aprovado |
+| 17 | Sensor sem leitura | Sensores sem registros de leitura devem exibir “Sem leitura”. | Como a tabela `leituras` estava vazia, os sensores exibiram “Sem leitura”. | Aprovado |
+
+## 4. Leituras e alertas
+
+| Nº | O que se testa | Resultado esperado | Obtido | Situação |
+| :---: | :--- | :--- | :--- | :---: |
+| 18 | Leitura dentro do limite não gera alerta | As leituras devem ser registradas sem gerar alertas. | Foram geradas 10 leituras e a página informou “Nenhum alerta encontrado”. | Aprovado |
+| 19 | Leitura acima do limite gera alerta | O sistema deve identificar valores acima do limite e gerar alertas. | O sistema gerou alertas para as leituras fora do limite. | Aprovado |
+| 20 | Consulta dos alertas e seus detalhes | O sistema deve exibir os dados do alerta, incluindo sensor, trem, severidade, valor, limite, data/hora e status. | Os detalhes foram exibidos corretamente: sensor S-TEMP-001 — Temperatura, trem TR-204, severidade crítico, valor 119,11 °C, limite 100 °C, data/hora e status pendente. | Aprovado |
+
+## 5. Registro de falhas e correções
+
+Durante a execução dos 20 casos registrados neste roteiro, não foi relatada falha funcional que tenha exigido correção. Os resultados observados corresponderam aos resultados esperados.
+
+Caso uma falha seja identificada em uma nova execução, ela deverá ser registrada aqui, mesmo que seja corrigida posteriormente. Não apagar o registro: atualizar a situação para **Falha corrigida** e descrever a correção realizada.
+
+| Nº do teste | Falha identificada | Correção realizada | Situação |
+| :---: | :--- | :--- | :---: |
+| — | Nenhuma falha funcional registrada durante a execução deste roteiro. | — | — |
+
+## 6. Conclusão
+
+Os 20 casos deste roteiro foram executados e aprovados no ambiente de desenvolvimento do FerroTrack. Os testes verificaram autenticação, controle de acesso, gerenciamento de usuários, cadastro de trens, associação de sensores, leituras e geração e consulta de alertas.

@@ -9,26 +9,18 @@ function renderizarMenu()
 
     $categorias = [
         'Painéis' => [
-            ['painel-gestor.php', 'bi-speedometer2', 'Painel do Gestor', ['gestor']],
-            ['painel-maquinista.php', 'bi-person-badge', 'Painel do Maquinista', ['gestor']],
-            ['painel-cliente.php', 'bi-person', 'Painel do Cliente', ['gestor']],
             ['dashboard.php', 'bi-grid-1x2', 'Dashboard Geral', ['gestor', 'maquinista']]
         ],
 
         'Operação' => [
             ['gestao-rotas.php', 'bi-signpost-split', 'Gestão de Rotas', ['gestor', 'maquinista']],
-            ['adicionar-rota.php', 'bi-plus-square', 'Adicionar Rota', ['gestor']],
             ['monitoramento-cargas.php', 'bi-box-seam', 'Monitoramento de Cargas', ['gestor', 'maquinista']],
-            ['trens.php', 'bi-train-front', 'Trens', ['gestor', 'maquinista']],
             ['trens-cadastrados.php', 'bi-list-ul', 'Trens Cadastrados', ['gestor', 'maquinista']],
             ['alertas.php', 'bi-bell', 'Alertas e Notificações', ['gestor', 'maquinista', 'cliente']]
         ],
 
         'Sensores' => [
             ['sensores.php', 'bi-cpu', 'Gerenciar Sensores', ['gestor', 'maquinista']],
-            ['adicionar-sensor.php', 'bi-plus-circle', 'Adicionar Sensor', ['gestor']],
-            ['editar-sensor.php', 'bi-pencil', 'Editar Sensor', ['gestor']],
-            ['remover-sensor.php', 'bi-dash-circle', 'Remover Sensor', ['gestor']]
         ],
 
         'Relatórios' => [
@@ -38,7 +30,6 @@ function renderizarMenu()
         'Usuários' => [
             ['usuarios.php', 'bi-people', 'Status de Usuários', ['gestor', 'maquinista']],
             ['gerenciamento-usuarios.php', 'bi-person-gear', 'Gerenciar Usuários', ['gestor']],
-            ['adicionar-usuario.php', 'bi-person-plus', 'Adicionar Usuário', ['gestor']],
             ['perfil.php', 'bi-person-circle', 'Meu Perfil', ['gestor', 'maquinista', 'cliente']]
         ],
 
