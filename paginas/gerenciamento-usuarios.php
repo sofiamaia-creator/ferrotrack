@@ -33,10 +33,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit("Solicitação inválida. Atualize a página e tente novamente.");
     }
 
-    if (
-        !$idUsuario ||
-        !in_array($acao, ['ativar', 'desativar'], true)
-    ) {
+    if (!$idUsuario) {
+        header("Location: gerenciamento-usuarios.php?erro=solicitacao");
+        exit;
+    }
+
+    if (in_array($acao, ['aprovar', 'recusar'], true)) {
+        $novoStatus = ($acao === 'aprovar') ? 'aprovado' : 'recusado';
+
+        $stmt = $conexao->prepare(
+            "UPDATE usuarios
+             SET status_aprovacao = ?
+             WHERE id_usuario = ?
+             AND papel IN ('maquinista', 'gestor')
+             AND status_aprovacao = 'pendente'"
+        );
+
+        if (!$stmt) {
+            error_log("Erro ao preparar aprovação: " . $conexao->error);
+            header("Location: gerenciamento-usuarios.php?erro=atualizacao");
+            exit;
+        }
+
+        $stmt->bind_param("si", $novoStatus, $idUsuario);
+
+        if (!$stmt->execute()) {
+            error_log("Erro ao atualizar solicitação: " . $stmt->error);
+            $stmt->close();
+
+            header("Location: gerenciamento-usuarios.php?erro=atualizacao");
+            exit;
+        }
+
+        $alterados = $stmt->affected_rows;
+        $stmt->close();
+
+        if ($alterados > 0) {
+            header("Location: gerenciamento-usuarios.php?sucesso=" . $acao);
+        } else {
+            header("Location: gerenciamento-usuarios.php?erro=solicitacao");
+        }
+
+        exit;
+    }
+
+    if (!in_array($acao, ['ativar', 'desativar'], true)) {
         header("Location: gerenciamento-usuarios.php?erro=solicitacao");
         exit;
     }
@@ -49,7 +90,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $novoStatus = ($acao === 'ativar') ? 1 : 0;
 
     $stmt = $conexao->prepare(
-        "UPDATE usuarios SET ativo = ? WHERE id_usuario = ?"
+        "UPDATE usuarios
+         SET ativo = ?
+         WHERE id_usuario = ?
+         AND status_aprovacao = 'aprovado'"
     );
 
     if (!$stmt) {
@@ -81,9 +125,26 @@ if (!in_array($status, ['', 'ativo', 'inativo'], true)) {
     $status = '';
 }
 
-$sql = "SELECT id_usuario, login, papel, ativo, telefone, criado_em
-        FROM usuarios
-        WHERE 1 = 1";
+$sqlSolicitacoes = "
+    SELECT id_usuario, login, papel, telefone, criado_em
+    FROM usuarios
+    WHERE status_aprovacao = 'pendente'
+    AND papel IN ('maquinista', 'gestor')
+    ORDER BY criado_em ASC
+";
+
+$resultadoSolicitacoes = $conexao->query($sqlSolicitacoes);
+
+if (!$resultadoSolicitacoes) {
+    error_log("Erro ao consultar solicitações: " . $conexao->error);
+    die("Erro ao consultar as solicitações.");
+}
+
+$sql = "
+    SELECT id_usuario, login, papel, ativo, telefone, criado_em
+    FROM usuarios
+    WHERE status_aprovacao = 'aprovado'
+";
 
 $parametros = [];
 $tipos = "";
@@ -206,7 +267,19 @@ $resultado = $stmt->get_result();
                     </div>
                 </div>
 
-                <?php if (($_GET['sucesso'] ?? '') === 'desativar'): ?>
+                <?php if (($_GET['sucesso'] ?? '') === 'aprovar'): ?>
+
+                    <div class="alert alert-success" role="alert">
+                        Cadastro aprovado com sucesso. O usuário já pode acessar o sistema.
+                    </div>
+
+                <?php elseif (($_GET['sucesso'] ?? '') === 'recusar'): ?>
+
+                    <div class="alert alert-success" role="alert">
+                        Solicitação recusada com sucesso.
+                    </div>
+
+                <?php elseif (($_GET['sucesso'] ?? '') === 'desativar'): ?>
 
                     <div class="alert alert-success" role="alert">
                         Usuário desativado com sucesso.
@@ -227,7 +300,7 @@ $resultado = $stmt->get_result();
                 <?php elseif (($_GET['erro'] ?? '') === 'solicitacao'): ?>
 
                     <div class="alert alert-danger" role="alert">
-                        Solicitação inválida.
+                        Solicitação inválida ou já processada.
                     </div>
 
                 <?php elseif (($_GET['erro'] ?? '') === 'atualizacao'): ?>
@@ -243,6 +316,143 @@ $resultado = $stmt->get_result();
                     <div class="col-12">
                         <div class="card border-0 shadow-sm">
                             <div class="card-body">
+
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                    <div>
+                                        <h2 class="h5 mb-1">Solicitações de cadastro</h2>
+                                        <p class="text-secondary small mb-0">
+                                            Aprove ou recuse novos cadastros de maquinistas e gestores.
+                                        </p>
+                                    </div>
+
+                                    <span class="badge text-bg-warning">
+                                        <?= $resultadoSolicitacoes->num_rows ?> pendente(s)
+                                    </span>
+                                </div>
+
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Usuário</th>
+                                                <th>Cargo solicitado</th>
+                                                <th>Telefone</th>
+                                                <th>Data da solicitação</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody>
+
+                                            <?php if ($resultadoSolicitacoes->num_rows > 0): ?>
+
+                                                <?php while ($solicitacao = $resultadoSolicitacoes->fetch_assoc()): ?>
+
+                                                    <tr>
+                                                        <td>
+                                                            <div class="fw-semibold">
+                                                                <?= htmlspecialchars($solicitacao['login'], ENT_QUOTES, 'UTF-8') ?>
+                                                            </div>
+
+                                                            <small class="text-secondary">
+                                                                ID: <?= (int) $solicitacao['id_usuario'] ?>
+                                                            </small>
+                                                        </td>
+
+                                                        <td>
+                                                            <span class="badge text-bg-light border">
+                                                                <?= htmlspecialchars(ucfirst($solicitacao['papel']), ENT_QUOTES, 'UTF-8') ?>
+                                                            </span>
+                                                        </td>
+
+                                                        <td>
+                                                            <?= htmlspecialchars($solicitacao['telefone'] ?? 'Não informado', ENT_QUOTES, 'UTF-8') ?>
+                                                        </td>
+
+                                                        <td>
+                                                            <?php
+                                                            if (!empty($solicitacao['criado_em'])) {
+                                                                echo htmlspecialchars(
+                                                                    date('d/m/Y', strtotime($solicitacao['criado_em'])),
+                                                                    ENT_QUOTES,
+                                                                    'UTF-8'
+                                                                );
+                                                            } else {
+                                                                echo 'Não informado';
+                                                            }
+                                                            ?>
+                                                        </td>
+
+                                                        <td>
+                                                            <div class="d-flex flex-wrap gap-2">
+
+                                                                <form method="POST"
+                                                                    onsubmit="return confirm('Deseja aprovar este cadastro?');">
+
+                                                                    <input type="hidden" name="csrf_token"
+                                                                        value="<?= htmlspecialchars($_SESSION['csrf_usuarios'], ENT_QUOTES, 'UTF-8') ?>">
+
+                                                                    <input type="hidden" name="id_usuario"
+                                                                        value="<?= (int) $solicitacao['id_usuario'] ?>">
+
+                                                                    <input type="hidden" name="acao" value="aprovar">
+
+                                                                    <button type="submit" class="btn btn-sm btn-success">
+                                                                        <i class="bi bi-check-circle me-1"></i>
+                                                                        Aprovar
+                                                                    </button>
+
+                                                                </form>
+
+                                                                <form method="POST"
+                                                                    onsubmit="return confirm('Tem certeza de que deseja recusar este cadastro?');">
+
+                                                                    <input type="hidden" name="csrf_token"
+                                                                        value="<?= htmlspecialchars($_SESSION['csrf_usuarios'], ENT_QUOTES, 'UTF-8') ?>">
+
+                                                                    <input type="hidden" name="id_usuario"
+                                                                        value="<?= (int) $solicitacao['id_usuario'] ?>">
+
+                                                                    <input type="hidden" name="acao" value="recusar">
+
+                                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                                        <i class="bi bi-x-circle me-1"></i>
+                                                                        Recusar
+                                                                    </button>
+
+                                                                </form>
+
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+
+                                                <?php endwhile; ?>
+
+                                            <?php else: ?>
+
+                                                <tr>
+                                                    <td colspan="5" class="text-center text-secondary py-4">
+                                                        Não existem solicitações pendentes.
+                                                    </td>
+                                                </tr>
+
+                                            <?php endif; ?>
+
+                                        </tbody>
+
+                                    </table>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body">
+
+                                <h2 class="h5 mb-3">Usuários cadastrados</h2>
 
                                 <form method="GET" class="row g-2 align-items-end">
 
@@ -315,12 +525,12 @@ $resultado = $stmt->get_result();
 
                                         <thead class="table-light">
                                             <tr>
-                                                <th scope="col">Usuário</th>
-                                                <th scope="col">Cargo</th>
-                                                <th scope="col">Status</th>
-                                                <th scope="col">Telefone</th>
-                                                <th scope="col">Cadastro</th>
-                                                <th scope="col">Ações</th>
+                                                <th>Usuário</th>
+                                                <th>Cargo</th>
+                                                <th>Status</th>
+                                                <th>Telefone</th>
+                                                <th>Cadastro</th>
+                                                <th>Ações</th>
                                             </tr>
                                         </thead>
 
@@ -360,15 +570,11 @@ $resultado = $stmt->get_result();
                                                         <td>
                                                             <?php if ((int) $usuario['ativo'] === 1): ?>
 
-                                                                <span class="badge text-bg-success">
-                                                                    Ativo
-                                                                </span>
+                                                                <span class="badge text-bg-success">Ativo</span>
 
                                                             <?php else: ?>
 
-                                                                <span class="badge text-bg-secondary">
-                                                                    Inativo
-                                                                </span>
+                                                                <span class="badge text-bg-secondary">Inativo</span>
 
                                                             <?php endif; ?>
                                                         </td>
@@ -412,23 +618,13 @@ $resultado = $stmt->get_result();
                                                                     <form method="POST"
                                                                         onsubmit="return confirm('Tem certeza de que deseja desativar este usuário?');">
 
-                                                                        <input
-                                                                            type="hidden"
-                                                                            name="csrf_token"
-                                                                            value="<?= htmlspecialchars($_SESSION['csrf_usuarios'], ENT_QUOTES, 'UTF-8') ?>"
-                                                                        >
+                                                                        <input type="hidden" name="csrf_token"
+                                                                            value="<?= htmlspecialchars($_SESSION['csrf_usuarios'], ENT_QUOTES, 'UTF-8') ?>">
 
-                                                                        <input
-                                                                            type="hidden"
-                                                                            name="id_usuario"
-                                                                            value="<?= (int) $usuario['id_usuario'] ?>"
-                                                                        >
+                                                                        <input type="hidden" name="id_usuario"
+                                                                            value="<?= (int) $usuario['id_usuario'] ?>">
 
-                                                                        <input
-                                                                            type="hidden"
-                                                                            name="acao"
-                                                                            value="desativar"
-                                                                        >
+                                                                        <input type="hidden" name="acao" value="desativar">
 
                                                                         <button type="submit" class="btn btn-sm btn-outline-danger">
                                                                             <i class="bi bi-person-dash me-1"></i>
@@ -444,23 +640,13 @@ $resultado = $stmt->get_result();
                                                                 <form method="POST"
                                                                     onsubmit="return confirm('Tem certeza de que deseja reativar este usuário?');">
 
-                                                                    <input
-                                                                        type="hidden"
-                                                                        name="csrf_token"
-                                                                        value="<?= htmlspecialchars($_SESSION['csrf_usuarios'], ENT_QUOTES, 'UTF-8') ?>"
-                                                                    >
+                                                                    <input type="hidden" name="csrf_token"
+                                                                        value="<?= htmlspecialchars($_SESSION['csrf_usuarios'], ENT_QUOTES, 'UTF-8') ?>">
 
-                                                                    <input
-                                                                        type="hidden"
-                                                                        name="id_usuario"
-                                                                        value="<?= (int) $usuario['id_usuario'] ?>"
-                                                                    >
+                                                                    <input type="hidden" name="id_usuario"
+                                                                        value="<?= (int) $usuario['id_usuario'] ?>">
 
-                                                                    <input
-                                                                        type="hidden"
-                                                                        name="acao"
-                                                                        value="ativar"
-                                                                    >
+                                                                    <input type="hidden" name="acao" value="ativar">
 
                                                                     <button type="submit" class="btn btn-sm btn-outline-success">
                                                                         <i class="bi bi-person-check me-1"></i>
