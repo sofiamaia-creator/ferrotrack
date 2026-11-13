@@ -3,6 +3,7 @@
 require_once "../assets/php/proteger.php";
 require_once "../assets/php/permissao.php";
 require_once "../assets/php/cabecalho.php";
+require_once "../assets/php/menu.php";
 require_once "../includes/limites.php";
 require_once "../assets/php/conexao.php";
 
@@ -43,6 +44,10 @@ $sql .= " ORDER BY trens.prefixo, sensores.codigo";
 
 $stmt = $conexao->prepare($sql);
 
+if (!$stmt) {
+    die("Erro ao preparar consulta: " . $conexao->error);
+}
+
 if ($tipoFiltro !== '') {
     $stmt->bind_param("s", $tipoFiltro);
 }
@@ -53,6 +58,11 @@ $sensores = $stmt->get_result();
 $tipos = $conexao->query(
     "SELECT DISTINCT tipo FROM sensores ORDER BY tipo"
 );
+
+if (!$tipos) {
+    die("Erro ao consultar os tipos de sensores: " . $conexao->error);
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -61,483 +71,173 @@ $tipos = $conexao->query(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <title>Gerenciamento de Sensores — FerroTrack</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
     <link rel="stylesheet" href="../paginas/cabecalho.css">
+
+    <style>
+        .layout-principal {
+            display: flex;
+            align-items: flex-start;
+            min-height: calc(100vh - 64px);
+        }
+
+        .layout-principal > aside {
+            flex: 0 0 25%;
+            max-width: 25%;
+            min-width: 0;
+            height: calc(100vh - 64px);
+            overflow-y: auto;
+            position: sticky;
+            top: 64px;
+            background-color: #fff;
+            border-right: 1px solid #dee2e6;
+        }
+
+        .conteudo-principal {
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 24px;
+        }
+
+        @media (min-width: 1200px) {
+            .layout-principal > aside {
+                flex-basis: 16.666667%;
+                max-width: 16.666667%;
+            }
+        }
+
+        @media (max-width: 991.98px) {
+            .layout-principal > aside {
+                display: none !important;
+            }
+
+            .conteudo-principal {
+                width: 100%;
+                padding: 16px;
+            }
+        }
+    </style>
 </head>
 
 <body class="bg-body-tertiary">
 
 <?php gerarCabecalho(); ?>
 
-<nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
-    <div class="container-fluid gap-2">
+<div class="container-fluid px-0">
 
-        <button class="btn btn-outline-secondary d-lg-none" type="button"
-                data-bs-toggle="offcanvas" data-bs-target="#menuLateral"
-                aria-controls="menuLateral" aria-label="Abrir menu">
-            <i class="bi bi-list fs-4"></i>
-        </button>
+    <div class="layout-principal">
 
-        <a class="navbar-brand d-flex align-items-center gap-2 me-auto" href="painel-gestor.php">
-            <img src="../assets/img/logo.png" alt="FerroTrack" width="32" height="32" class="object-fit-contain">
-            <span class="fw-semibold">FerroTrack</span>
-        </a>
+        <?php renderizarMenu(); ?>
 
-        <div class="d-flex align-items-center gap-1">
-            <button class="btn btn-sm btn-outline-secondary border-0 position-relative"
-                    type="button" title="Notificações" aria-label="Notificações"
-                    onclick="window.location.href='alertas.php'">
-                <i class="bi bi-bell fs-5"></i>
-                <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
-            </button>
-
-            <div class="vr mx-2 d-none d-sm-block"></div>
-
-            <a class="btn btn-sm btn-outline-primary d-none d-sm-inline-flex align-items-center gap-1" href="perfil.php">
-                <i class="bi bi-person-circle"></i>
-                <span class="d-none d-md-inline">Minha conta</span>
-            </a>
-        </div>
-
-    </div>
-</nav>
-
-<div class="container-fluid">
-    <div class="row">
-
-        <aside class="col-lg-3 col-xl-2 d-none d-lg-block bg-white border-end vh-100 position-sticky top-0 p-0">
-            <nav class="p-3 overflow-auto h-100">
-                <ul class="nav nav-pills flex-column">
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">Painéis</span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-gestor.php">
-                            <i class="bi bi-speedometer2"></i>
-                            <span>Painel do Gestor</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-maquinista.php">
-                            <i class="bi bi-person-badge"></i>
-                            <span>Painel do Maquinista</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-cliente.php">
-                            <i class="bi bi-person"></i>
-                            <span>Painel do Cliente</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="dashboard.php">
-                            <i class="bi bi-grid-1x2"></i>
-                            <span>Dashboard Geral</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">Operação</span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gestao-rotas.php">
-                            <i class="bi bi-signpost-split"></i>
-                            <span>Gestão de Rotas</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-rota.php">
-                            <i class="bi bi-plus-square"></i>
-                            <span>Adicionar Rota</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="monitoramento-cargas.php">
-                            <i class="bi bi-box-seam"></i>
-                            <span>Monitoramento de Cargas</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens.php">
-                            <i class="bi bi-train-front"></i>
-                            <span>Trens</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens-cadastrados.php">
-                            <i class="bi bi-list-ul"></i>
-                            <span>Trens Cadastrados</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="alertas.php">
-                            <i class="bi bi-bell"></i>
-                            <span>Alertas e Notificações</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">Sensores</span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 active bg-primary text-white"
-                           href="sensores.php" aria-current="page">
-                            <i class="bi bi-cpu"></i>
-                            <span>Gerenciar Sensores</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-sensor.php">
-                            <i class="bi bi-plus-circle"></i>
-                            <span>Adicionar Sensor</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="editar-sensor.php">
-                            <i class="bi bi-pencil"></i>
-                            <span>Editar Sensor</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="remover-sensor.php">
-                            <i class="bi bi-dash-circle"></i>
-                            <span>Remover Sensor</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">Relatórios</span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="relatorios.php">
-                            <i class="bi bi-file-earmark-bar-graph"></i>
-                            <span>Relatórios</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">Usuários</span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="usuarios.php">
-                            <i class="bi bi-people"></i>
-                            <span>Status de Usuários</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gerenciamento-usuarios.php">
-                            <i class="bi bi-person-gear"></i>
-                            <span>Gerenciar Usuários</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-usuario.php">
-                            <i class="bi bi-person-plus"></i>
-                            <span>Adicionar Usuário</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="perfil.php">
-                            <i class="bi bi-person-circle"></i>
-                            <span>Meu Perfil</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">Cliente</span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="pagamento.php">
-                            <i class="bi bi-credit-card"></i>
-                            <span>Pagamento</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="passagens.php">
-                            <i class="bi bi-ticket-perforated"></i>
-                            <span>Passagens</span>
-                        </a>
-                    </li>
-
-                </ul>
-            </nav>
-        </aside>
-
-        <div class="offcanvas offcanvas-start d-lg-none" tabindex="-1" id="menuLateral" aria-labelledby="tituloMenu">
-            <div class="offcanvas-header border-bottom">
-                <h5 class="offcanvas-title" id="tituloMenu">Menu</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
-            </div>
-
-            <div class="offcanvas-body">
-                <ul class="nav nav-pills flex-column">
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">Painéis</span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-gestor.php">
-                            <i class="bi bi-speedometer2"></i>
-                            <span>Painel do Gestor</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-maquinista.php">
-                            <i class="bi bi-person-badge"></i>
-                            <span>Painel do Maquinista</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-cliente.php">
-                            <i class="bi bi-person"></i>
-                            <span>Painel do Cliente</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="dashboard.php">
-                            <i class="bi bi-grid-1x2"></i>
-                            <span>Dashboard Geral</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">Operação</span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gestao-rotas.php">
-                            <i class="bi bi-signpost-split"></i>
-                            <span>Gestão de Rotas</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-rota.php">
-                            <i class="bi bi-plus-square"></i>
-                            <span>Adicionar Rota</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="monitoramento-cargas.php">
-                            <i class="bi bi-box-seam"></i>
-                            <span>Monitoramento de Cargas</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens.php">
-                            <i class="bi bi-train-front"></i>
-                            <span>Trens</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens-cadastrados.php">
-                            <i class="bi bi-list-ul"></i>
-                            <span>Trens Cadastrados</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="alertas.php">
-                            <i class="bi bi-bell"></i>
-                            <span>Alertas e Notificações</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">Sensores</span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 active bg-primary text-white"
-                           href="sensores.php" aria-current="page">
-                            <i class="bi bi-cpu"></i>
-                            <span>Gerenciar Sensores</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-sensor.php">
-                            <i class="bi bi-plus-circle"></i>
-                            <span>Adicionar Sensor</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="editar-sensor.php">
-                            <i class="bi bi-pencil"></i>
-                            <span>Editar Sensor</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="remover-sensor.php">
-                            <i class="bi bi-dash-circle"></i>
-                            <span>Remover Sensor</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">Relatórios</span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="relatorios.php">
-                            <i class="bi bi-file-earmark-bar-graph"></i>
-                            <span>Relatórios</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">Usuários</span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="usuarios.php">
-                            <i class="bi bi-people"></i>
-                            <span>Status de Usuários</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gerenciamento-usuarios.php">
-                            <i class="bi bi-person-gear"></i>
-                            <span>Gerenciar Usuários</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-usuario.php">
-                            <i class="bi bi-person-plus"></i>
-                            <span>Adicionar Usuário</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="perfil.php">
-                            <i class="bi bi-person-circle"></i>
-                            <span>Meu Perfil</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item mt-3 mb-1">
-                        <span class="text-uppercase small fw-semibold text-secondary px-3">Cliente</span>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="pagamento.php">
-                            <i class="bi bi-credit-card"></i>
-                            <span>Pagamento</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="passagens.php">
-                            <i class="bi bi-ticket-perforated"></i>
-                            <span>Passagens</span>
-                        </a>
-                    </li>
-
-                </ul>
-            </div>
-        </div>
-
-        <main class="col-12 col-lg-9 col-xl-10 py-4 px-3 px-md-4">
+        <main class="conteudo-principal">
 
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+
                 <div>
                     <h1 class="h3 mb-0">Gerenciamento de Sensores</h1>
-                    <p class="text-secondary mb-0 small">Sensores instalados na malha</p>
+
+                    <p class="text-secondary mb-0 small">
+                        Sensores instalados na malha
+                    </p>
                 </div>
+
             </div>
 
             <div class="row g-3">
 
                 <div class="col-12">
+
                     <div class="d-flex flex-column flex-sm-row gap-2">
+
                         <a href="adicionar-sensor.php" class="btn btn-primary flex-fill">
-                            <i class="bi bi-plus-circle me-1"></i>Adicionar sensor
+                            <i class="bi bi-plus-circle me-1"></i>
+                            Adicionar sensor
                         </a>
 
                         <a href="editar-sensor.php" class="btn btn-outline-primary flex-fill">
-                            <i class="bi bi-pencil me-1"></i>Editar sensor
+                            <i class="bi bi-pencil me-1"></i>
+                            Editar sensor
                         </a>
 
                         <a href="remover-sensor.php" class="btn btn-outline-danger flex-fill">
-                            <i class="bi bi-dash-circle me-1"></i>Remover sensor
+                            <i class="bi bi-dash-circle me-1"></i>
+                            Remover sensor
                         </a>
+
                     </div>
+
                 </div>
 
                 <div class="col-12">
+
                     <div class="card border-0 shadow-sm">
+
                         <div class="card-body">
 
                             <form method="GET" class="row g-2 align-items-end mb-4">
+
                                 <div class="col-12 col-md-6 col-lg-4">
-                                    <label for="tipo" class="form-label">Filtrar por tipo</label>
+
+                                    <label for="tipo" class="form-label">
+                                        Filtrar por tipo
+                                    </label>
 
                                     <select class="form-select" name="tipo" id="tipo">
-                                        <option value="">Todos os tipos</option>
+
+                                        <option value="">
+                                            Todos os tipos
+                                        </option>
 
                                         <?php while ($tipo = $tipos->fetch_assoc()): ?>
+
                                             <option
                                                 value="<?= htmlspecialchars($tipo['tipo']) ?>"
-                                                <?= $tipoFiltro === $tipo['tipo'] ? 'selected' : '' ?>>
+                                                <?= $tipoFiltro === $tipo['tipo'] ? 'selected' : '' ?>
+                                            >
                                                 <?= htmlspecialchars($tipo['tipo']) ?>
                                             </option>
+
                                         <?php endwhile; ?>
+
                                     </select>
+
                                 </div>
 
                                 <div class="col-12 col-md-auto">
+
                                     <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-funnel me-1"></i>Filtrar
+                                        <i class="bi bi-funnel me-1"></i>
+                                        Filtrar
                                     </button>
+
                                 </div>
 
                                 <?php if ($tipoFiltro !== ''): ?>
+
                                     <div class="col-12 col-md-auto">
+
                                         <a href="sensores.php" class="btn btn-outline-secondary">
                                             Limpar filtro
                                         </a>
+
                                     </div>
+
                                 <?php endif; ?>
+
                             </form>
 
                             <div class="table-responsive">
+
                                 <table class="table table-hover align-middle mb-0">
+
                                     <thead class="table-light">
+
                                         <tr>
                                             <th scope="col">Código</th>
                                             <th scope="col">Trem</th>
@@ -546,24 +246,29 @@ $tipos = $conexao->query(
                                             <th scope="col">Segmento</th>
                                             <th scope="col">Última leitura</th>
                                         </tr>
+
                                     </thead>
 
                                     <tbody>
+
                                         <?php if ($sensores->num_rows > 0): ?>
 
                                             <?php while ($sensor = $sensores->fetch_assoc()): ?>
 
                                                 <?php
+
                                                 $valorLeitura = $sensor['ultima_leitura'];
                                                 $severidade = 'Sem leitura';
                                                 $classeLeitura = 'bg-secondary-subtle text-secondary-emphasis';
 
                                                 if ($valorLeitura !== null) {
+
                                                     try {
+
                                                         $classificacao = strtolower(
                                                             classificar(
                                                                 $sensor['tipo'],
-                                                                (float) $valorLeitura
+                                                                (float)$valorLeitura
                                                             )
                                                         );
 
@@ -577,23 +282,32 @@ $tipos = $conexao->query(
                                                             $severidade = 'Crítico';
                                                             $classeLeitura = 'bg-danger-subtle text-danger-emphasis';
                                                         }
+
                                                     } catch (Throwable $erro) {
+
                                                         $severidade = 'Limite indisponível';
                                                         $classeLeitura = 'bg-secondary-subtle text-secondary-emphasis';
+
                                                     }
+
                                                 }
+
                                                 ?>
 
                                                 <tr>
+
                                                     <td class="fw-semibold">
                                                         <?= htmlspecialchars($sensor['codigo'] ?? '') ?>
                                                     </td>
 
                                                     <td>
+
                                                         <?= htmlspecialchars($sensor['prefixo'] ?? 'Sem trem associado') ?>
+
                                                         <?php if (!empty($sensor['modelo'])): ?>
                                                             — <?= htmlspecialchars($sensor['modelo']) ?>
                                                         <?php endif; ?>
+
                                                     </td>
 
                                                     <td>
@@ -609,16 +323,27 @@ $tipos = $conexao->query(
                                                     </td>
 
                                                     <td>
+
                                                         <span class="badge <?= $classeLeitura ?>">
+
                                                             <?php if ($valorLeitura === null): ?>
+
                                                                 Sem leitura
+
                                                             <?php else: ?>
-                                                                <?= htmlspecialchars((string) $valorLeitura) ?>
+
+                                                                <?= htmlspecialchars((string)$valorLeitura) ?>
+
                                                                 <?= htmlspecialchars($sensor['unidade_leitura'] ?? '') ?>
+
                                                                 — <?= htmlspecialchars($severidade) ?>
+
                                                             <?php endif; ?>
+
                                                         </span>
+
                                                     </td>
+
                                                 </tr>
 
                                             <?php endwhile; ?>
@@ -626,18 +351,25 @@ $tipos = $conexao->query(
                                         <?php else: ?>
 
                                             <tr>
+
                                                 <td colspan="6" class="text-center text-secondary py-4">
                                                     Nenhum sensor encontrado.
                                                 </td>
+
                                             </tr>
 
                                         <?php endif; ?>
+
                                     </tbody>
+
                                 </table>
+
                             </div>
 
                         </div>
+
                     </div>
+
                 </div>
 
             </div>
@@ -645,6 +377,7 @@ $tipos = $conexao->query(
         </main>
 
     </div>
+
 </div>
 
 <?php
@@ -652,5 +385,6 @@ $stmt->close();
 ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+
 </body>
 </html>

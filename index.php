@@ -11,10 +11,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $login = trim($_POST['login'] ?? '');
     $senha = $_POST['senha'] ?? '';
 
-    $sql = "SELECT id_usuario, login, senha, papel
+    $sql = "SELECT id_usuario, login, senha, papel, ativo, status_aprovacao
             FROM usuarios
-            WHERE login = ?
-            AND ativo = TRUE";
+            WHERE login = ?";
 
     $stmt = $conexao->prepare($sql);
 
@@ -28,14 +27,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($usuario && password_verify($senha, $usuario['senha'])) {
 
-            session_regenerate_id(true);
+            if ($usuario['status_aprovacao'] === 'pendente') {
 
-            $_SESSION['id_usuario'] = $usuario['id_usuario'];
-            $_SESSION['usuario_nome'] = $usuario['login'];
-            $_SESSION['usuario_papel'] = $usuario['papel'];
+                $erro = "Seu cadastro está aguardando aprovação de um gestor.";
 
-            header("Location: paginas/dashboard.php");
-            exit;
+            } elseif ($usuario['status_aprovacao'] === 'recusado') {
+
+                $erro = "Seu cadastro não foi aprovado. Entre em contato com a administração.";
+
+            } elseif ((int) $usuario['ativo'] !== 1) {
+
+                $erro = "Sua conta está desativada. Entre em contato com a administração.";
+
+            } else {
+
+                session_regenerate_id(true);
+
+                $_SESSION['id_usuario'] = $usuario['id_usuario'];
+                $_SESSION['usuario_nome'] = $usuario['login'];
+                $_SESSION['usuario_papel'] = $usuario['papel'];
+
+                header("Location: paginas/dashboard.php");
+                exit;
+            }
 
         } else {
 
@@ -58,7 +72,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <title>Login — Ferrovias</title>
@@ -87,8 +100,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <div class="card-body p-4 p-md-5">
 
-                        <!-- LOGO E TÍTULO -->
-
                         <div class="text-center mb-4">
 
                             <img
@@ -110,19 +121,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         </div>
 
-                        <!-- FORMULÁRIO DE LOGIN -->
-
                         <form method="POST" action="">
 
                             <?php if ($erro): ?>
 
                                 <div class="alert alert-danger" role="alert">
-                                    <?= htmlspecialchars($erro) ?>
+                                    <?= htmlspecialchars($erro, ENT_QUOTES, 'UTF-8') ?>
                                 </div>
 
                             <?php endif; ?>
-
-                            <!-- USUÁRIO -->
 
                             <div class="mb-3">
 
@@ -149,8 +156,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             </div>
 
-                            <!-- SENHA -->
-
                             <div class="mb-2">
 
                                 <label for="senha" class="form-label">
@@ -176,8 +181,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             </div>
 
-                            <!-- RECUPERAR SENHA -->
-
                             <div class="mb-4 text-end">
 
                                 <a
@@ -188,8 +191,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </a>
 
                             </div>
-
-                            <!-- BOTÕES -->
 
                             <div class="d-grid gap-2">
 
@@ -211,8 +212,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
 
                         </form>
-
-                        <!-- CADASTRO -->
 
                         <hr class="my-4">
 
@@ -236,9 +235,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     </main>
 
-    <script
-        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js">
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
 

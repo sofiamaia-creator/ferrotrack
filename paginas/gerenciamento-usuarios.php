@@ -1,8 +1,10 @@
 <?php
+
 require_once "../assets/php/proteger.php";
 require_once "../assets/php/permissao.php";
 require_once "../assets/php/conexao.php";
 require_once "../assets/php/cabecalho.php";
+require_once "../assets/php/menu.php";
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
@@ -31,10 +33,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit("Solicitação inválida. Atualize a página e tente novamente.");
     }
 
-    if (
-        !$idUsuario ||
-        !in_array($acao, ['ativar', 'desativar'], true)
-    ) {
+    if (!$idUsuario) {
+        header("Location: gerenciamento-usuarios.php?erro=solicitacao");
+        exit;
+    }
+
+    if (in_array($acao, ['aprovar', 'recusar'], true)) {
+        $novoStatus = ($acao === 'aprovar') ? 'aprovado' : 'recusado';
+
+        $stmt = $conexao->prepare(
+            "UPDATE usuarios
+             SET status_aprovacao = ?
+             WHERE id_usuario = ?
+             AND papel IN ('maquinista', 'gestor')
+             AND status_aprovacao = 'pendente'"
+        );
+
+        if (!$stmt) {
+            error_log("Erro ao preparar aprovação: " . $conexao->error);
+            header("Location: gerenciamento-usuarios.php?erro=atualizacao");
+            exit;
+        }
+
+        $stmt->bind_param("si", $novoStatus, $idUsuario);
+
+        if (!$stmt->execute()) {
+            error_log("Erro ao atualizar solicitação: " . $stmt->error);
+            $stmt->close();
+
+            header("Location: gerenciamento-usuarios.php?erro=atualizacao");
+            exit;
+        }
+
+        $alterados = $stmt->affected_rows;
+        $stmt->close();
+
+        if ($alterados > 0) {
+            header("Location: gerenciamento-usuarios.php?sucesso=" . $acao);
+        } else {
+            header("Location: gerenciamento-usuarios.php?erro=solicitacao");
+        }
+
+        exit;
+    }
+
+    if (!in_array($acao, ['ativar', 'desativar'], true)) {
         header("Location: gerenciamento-usuarios.php?erro=solicitacao");
         exit;
     }
@@ -47,7 +90,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $novoStatus = ($acao === 'ativar') ? 1 : 0;
 
     $stmt = $conexao->prepare(
-        "UPDATE usuarios SET ativo = ? WHERE id_usuario = ?"
+        "UPDATE usuarios
+         SET ativo = ?
+         WHERE id_usuario = ?
+         AND status_aprovacao = 'aprovado'"
     );
 
     if (!$stmt) {
@@ -61,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$stmt->execute()) {
         error_log("Erro ao atualizar usuário: " . $stmt->error);
         $stmt->close();
+
         header("Location: gerenciamento-usuarios.php?erro=atualizacao");
         exit;
     }
@@ -78,9 +125,26 @@ if (!in_array($status, ['', 'ativo', 'inativo'], true)) {
     $status = '';
 }
 
-$sql = "SELECT id_usuario, login, papel, ativo, telefone, criado_em
-        FROM usuarios
-        WHERE 1 = 1";
+$sqlSolicitacoes = "
+    SELECT id_usuario, login, papel, telefone, criado_em
+    FROM usuarios
+    WHERE status_aprovacao = 'pendente'
+    AND papel IN ('maquinista', 'gestor')
+    ORDER BY criado_em ASC
+";
+
+$resultadoSolicitacoes = $conexao->query($sqlSolicitacoes);
+
+if (!$resultadoSolicitacoes) {
+    error_log("Erro ao consultar solicitações: " . $conexao->error);
+    die("Erro ao consultar as solicitações.");
+}
+
+$sql = "
+    SELECT id_usuario, login, papel, ativo, telefone, criado_em
+    FROM usuarios
+    WHERE status_aprovacao = 'aprovado'
+";
 
 $parametros = [];
 $tipos = "";
@@ -118,271 +182,133 @@ if (!$stmt->execute()) {
 
 $resultado = $stmt->get_result();
 ?>
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <title>Usuários — Ferrovias</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../paginas/cabecalho.css">
+
+    <style>
+        .layout-principal {
+            display: flex;
+            align-items: flex-start;
+            min-height: calc(100vh - 64px);
+        }
+
+        .layout-principal > aside {
+            flex: 0 0 25%;
+            max-width: 25%;
+            min-width: 0;
+            height: calc(100vh - 64px);
+            overflow-y: auto;
+            position: sticky;
+            top: 64px;
+            background-color: #fff;
+            border-right: 1px solid #dee2e6;
+        }
+
+        .conteudo-principal {
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 24px;
+        }
+
+        @media (min-width: 1200px) {
+            .layout-principal > aside {
+                flex-basis: 16.666667%;
+                max-width: 16.666667%;
+            }
+        }
+
+        @media (max-width: 991.98px) {
+            .layout-principal > aside {
+                display: none !important;
+            }
+
+            .conteudo-principal {
+                width: 100%;
+                padding: 16px;
+            }
+        }
+    </style>
 </head>
 
 <body class="bg-body-tertiary">
 
     <?php gerarCabecalho(); ?>
 
-    <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
-        <div class="container-fluid gap-2">
-            <button class="btn btn-outline-secondary d-lg-none" type="button"
-                data-bs-toggle="offcanvas" data-bs-target="#menuLateral"
-                aria-controls="menuLateral" aria-label="Abrir menu">
-                <i class="bi bi-list fs-4"></i>
-            </button>
+    <div class="container-fluid px-0">
+        <div class="layout-principal">
 
-            <a class="navbar-brand d-flex align-items-center gap-2 me-auto" href="painel-gestor.php">
-                <img src="../assets/img/logo.png" alt="Ferrovias" width="32" height="32" class="object-fit-contain">
-                <span class="fw-semibold">Ferrovias</span>
-            </a>
+            <?php renderizarMenu(); ?>
 
-            <div class="d-flex align-items-center gap-1">
-                <button class="btn btn-sm btn-outline-secondary border-0 position-relative"
-                    type="button" title="Notificações" aria-label="Notificações"
-                    onclick="window.location.href='alertas.php'">
-                    <i class="bi bi-bell fs-5"></i>
-                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
-                </button>
-
-                <div class="vr mx-2 d-none d-sm-block"></div>
-
-                <a class="btn btn-sm btn-outline-primary d-none d-sm-inline-flex align-items-center gap-1" href="perfil.php">
-                    <i class="bi bi-person-circle"></i>
-                    <span class="d-none d-md-inline">Minha conta</span>
-                </a>
-            </div>
-        </div>
-    </nav>
-
-    <div class="container-fluid">
-        <div class="row">
-
-            <aside class="col-lg-3 col-xl-2 d-none d-lg-block bg-white border-end vh-100 position-sticky top-0 p-0">
-                <nav class="p-3 overflow-auto h-100">
-                    <ul class="nav nav-pills flex-column">
-
-                        <li class="nav-item mt-3 mb-1">
-                            <span class="text-uppercase small fw-semibold text-secondary px-3">Painéis</span>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-gestor.php">
-                                <i class="bi bi-speedometer2"></i><span>Painel do Gestor</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-maquinista.php">
-                                <i class="bi bi-person-badge"></i><span>Painel do Maquinista</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="painel-cliente.php">
-                                <i class="bi bi-person"></i><span>Painel do Cliente</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="dashboard.php">
-                                <i class="bi bi-grid-1x2"></i><span>Dashboard Geral</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item mt-3 mb-1">
-                            <span class="text-uppercase small fw-semibold text-secondary px-3">Operação</span>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="gestao-rotas.php">
-                                <i class="bi bi-signpost-split"></i><span>Gestão de Rotas</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-rota.php">
-                                <i class="bi bi-plus-square"></i><span>Adicionar Rota</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="monitoramento-cargas.php">
-                                <i class="bi bi-box-seam"></i><span>Monitoramento de Cargas</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens.php">
-                                <i class="bi bi-train-front"></i><span>Trens</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="trens-cadastrados.php">
-                                <i class="bi bi-list-ul"></i><span>Trens Cadastrados</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="alertas.php">
-                                <i class="bi bi-bell"></i><span>Alertas e Notificações</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item mt-3 mb-1">
-                            <span class="text-uppercase small fw-semibold text-secondary px-3">Sensores</span>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="sensores.php">
-                                <i class="bi bi-cpu"></i><span>Gerenciar Sensores</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-sensor.php">
-                                <i class="bi bi-plus-circle"></i><span>Adicionar Sensor</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="editar-sensor.php">
-                                <i class="bi bi-pencil"></i><span>Editar Sensor</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="remover-sensor.php">
-                                <i class="bi bi-dash-circle"></i><span>Remover Sensor</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item mt-3 mb-1">
-                            <span class="text-uppercase small fw-semibold text-secondary px-3">Relatórios</span>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="relatorios.php">
-                                <i class="bi bi-file-earmark-bar-graph"></i><span>Relatórios</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item mt-3 mb-1">
-                            <span class="text-uppercase small fw-semibold text-secondary px-3">Usuários</span>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="usuarios.php">
-                                <i class="bi bi-people"></i><span>Status de Usuários</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 active bg-primary text-white" href="gerenciamento-usuarios.php" aria-current="page">
-                                <i class="bi bi-person-gear"></i><span>Gerenciar Usuários</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="adicionar-usuario.php">
-                                <i class="bi bi-person-plus"></i><span>Adicionar Usuário</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="perfil.php">
-                                <i class="bi bi-person-circle"></i><span>Meu Perfil</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item mt-3 mb-1">
-                            <span class="text-uppercase small fw-semibold text-secondary px-3">Cliente</span>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="pagamento.php">
-                                <i class="bi bi-credit-card"></i><span>Pagamento</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 rounded px-3 text-body" href="passagens.php">
-                                <i class="bi bi-ticket-perforated"></i><span>Passagens</span>
-                            </a>
-                        </li>
-
-                    </ul>
-                </nav>
-            </aside>
-
-            <div class="offcanvas offcanvas-start d-lg-none" tabindex="-1" id="menuLateral" aria-labelledby="tituloMenu">
-                <div class="offcanvas-header border-bottom">
-                    <h5 class="offcanvas-title" id="tituloMenu">Menu</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
-                </div>
-
-                <div class="offcanvas-body">
-                    <ul class="nav nav-pills flex-column">
-                        <li class="nav-item mt-3 mb-1"><span class="text-uppercase small fw-semibold text-secondary px-3">Painéis</span></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="painel-gestor.php"><i class="bi bi-speedometer2 me-2"></i>Painel do Gestor</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="painel-maquinista.php"><i class="bi bi-person-badge me-2"></i>Painel do Maquinista</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="painel-cliente.php"><i class="bi bi-person me-2"></i>Painel do Cliente</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="dashboard.php"><i class="bi bi-grid-1x2 me-2"></i>Dashboard Geral</a></li>
-
-                        <li class="nav-item mt-3 mb-1"><span class="text-uppercase small fw-semibold text-secondary px-3">Operação</span></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="gestao-rotas.php"><i class="bi bi-signpost-split me-2"></i>Gestão de Rotas</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="adicionar-rota.php"><i class="bi bi-plus-square me-2"></i>Adicionar Rota</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="monitoramento-cargas.php"><i class="bi bi-box-seam me-2"></i>Monitoramento de Cargas</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="trens.php"><i class="bi bi-train-front me-2"></i>Trens</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="trens-cadastrados.php"><i class="bi bi-list-ul me-2"></i>Trens Cadastrados</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="alertas.php"><i class="bi bi-bell me-2"></i>Alertas e Notificações</a></li>
-
-                        <li class="nav-item mt-3 mb-1"><span class="text-uppercase small fw-semibold text-secondary px-3">Sensores</span></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="sensores.php"><i class="bi bi-cpu me-2"></i>Gerenciar Sensores</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="adicionar-sensor.php"><i class="bi bi-plus-circle me-2"></i>Adicionar Sensor</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="editar-sensor.php"><i class="bi bi-pencil me-2"></i>Editar Sensor</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="remover-sensor.php"><i class="bi bi-dash-circle me-2"></i>Remover Sensor</a></li>
-
-                        <li class="nav-item mt-3 mb-1"><span class="text-uppercase small fw-semibold text-secondary px-3">Relatórios</span></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="relatorios.php"><i class="bi bi-file-earmark-bar-graph me-2"></i>Relatórios</a></li>
-
-                        <li class="nav-item mt-3 mb-1"><span class="text-uppercase small fw-semibold text-secondary px-3">Usuários</span></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="usuarios.php"><i class="bi bi-people me-2"></i>Status de Usuários</a></li>
-                        <li class="nav-item"><a class="nav-link active bg-primary text-white" href="gerenciamento-usuarios.php"><i class="bi bi-person-gear me-2"></i>Gerenciar Usuários</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="adicionar-usuario.php"><i class="bi bi-person-plus me-2"></i>Adicionar Usuário</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="perfil.php"><i class="bi bi-person-circle me-2"></i>Meu Perfil</a></li>
-
-                        <li class="nav-item mt-3 mb-1"><span class="text-uppercase small fw-semibold text-secondary px-3">Cliente</span></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="pagamento.php"><i class="bi bi-credit-card me-2"></i>Pagamento</a></li>
-                        <li class="nav-item"><a class="nav-link text-body" href="passagens.php"><i class="bi bi-ticket-perforated me-2"></i>Passagens</a></li>
-                    </ul>
-                </div>
-            </div>
-
-            <main class="col-12 col-lg-9 col-xl-10 py-4 px-3 px-md-4">
+            <main class="conteudo-principal">
 
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
                     <div class="d-flex align-items-center gap-2">
                         <a class="btn btn-outline-secondary btn-sm" href="usuarios.php" aria-label="Voltar">
                             <i class="bi bi-arrow-left"></i>
                         </a>
+
                         <div>
                             <h1 class="h3 mb-0">Usuários</h1>
-                            <p class="text-secondary mb-0 small">Gerenciamento de usuários</p>
+                            <p class="text-secondary mb-0 small">
+                                Gerenciamento de usuários
+                            </p>
                         </div>
                     </div>
                 </div>
 
-                <?php if (($_GET['sucesso'] ?? '') === 'desativar'): ?>
+                <?php if (($_GET['sucesso'] ?? '') === 'aprovar'): ?>
+
+                    <div class="alert alert-success" role="alert">
+                        Cadastro aprovado com sucesso. O usuário já pode acessar o sistema.
+                    </div>
+
+                <?php elseif (($_GET['sucesso'] ?? '') === 'recusar'): ?>
+
+                    <div class="alert alert-success" role="alert">
+                        Solicitação recusada com sucesso.
+                    </div>
+
+                <?php elseif (($_GET['sucesso'] ?? '') === 'desativar'): ?>
+
                     <div class="alert alert-success" role="alert">
                         Usuário desativado com sucesso.
                     </div>
+
                 <?php elseif (($_GET['sucesso'] ?? '') === 'ativar'): ?>
+
                     <div class="alert alert-success" role="alert">
                         Usuário ativado com sucesso.
                     </div>
+
                 <?php elseif (($_GET['erro'] ?? '') === 'propria_conta'): ?>
+
                     <div class="alert alert-warning" role="alert">
                         Você não pode desativar sua própria conta.
                     </div>
+
                 <?php elseif (($_GET['erro'] ?? '') === 'solicitacao'): ?>
+
                     <div class="alert alert-danger" role="alert">
-                        Solicitação inválida.
+                        Solicitação inválida ou já processada.
                     </div>
+
                 <?php elseif (($_GET['erro'] ?? '') === 'atualizacao'): ?>
+
                     <div class="alert alert-danger" role="alert">
                         Não foi possível atualizar o usuário.
                     </div>
+
                 <?php endif; ?>
 
                 <div class="row g-3">
@@ -390,10 +316,151 @@ $resultado = $stmt->get_result();
                     <div class="col-12">
                         <div class="card border-0 shadow-sm">
                             <div class="card-body">
+
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                    <div>
+                                        <h2 class="h5 mb-1">Solicitações de cadastro</h2>
+                                        <p class="text-secondary small mb-0">
+                                            Aprove ou recuse novos cadastros de maquinistas e gestores.
+                                        </p>
+                                    </div>
+
+                                    <span class="badge text-bg-warning">
+                                        <?= $resultadoSolicitacoes->num_rows ?> pendente(s)
+                                    </span>
+                                </div>
+
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Usuário</th>
+                                                <th>Cargo solicitado</th>
+                                                <th>Telefone</th>
+                                                <th>Data da solicitação</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody>
+
+                                            <?php if ($resultadoSolicitacoes->num_rows > 0): ?>
+
+                                                <?php while ($solicitacao = $resultadoSolicitacoes->fetch_assoc()): ?>
+
+                                                    <tr>
+                                                        <td>
+                                                            <div class="fw-semibold">
+                                                                <?= htmlspecialchars($solicitacao['login'], ENT_QUOTES, 'UTF-8') ?>
+                                                            </div>
+
+                                                            <small class="text-secondary">
+                                                                ID: <?= (int) $solicitacao['id_usuario'] ?>
+                                                            </small>
+                                                        </td>
+
+                                                        <td>
+                                                            <span class="badge text-bg-light border">
+                                                                <?= htmlspecialchars(ucfirst($solicitacao['papel']), ENT_QUOTES, 'UTF-8') ?>
+                                                            </span>
+                                                        </td>
+
+                                                        <td>
+                                                            <?= htmlspecialchars($solicitacao['telefone'] ?? 'Não informado', ENT_QUOTES, 'UTF-8') ?>
+                                                        </td>
+
+                                                        <td>
+                                                            <?php
+                                                            if (!empty($solicitacao['criado_em'])) {
+                                                                echo htmlspecialchars(
+                                                                    date('d/m/Y', strtotime($solicitacao['criado_em'])),
+                                                                    ENT_QUOTES,
+                                                                    'UTF-8'
+                                                                );
+                                                            } else {
+                                                                echo 'Não informado';
+                                                            }
+                                                            ?>
+                                                        </td>
+
+                                                        <td>
+                                                            <div class="d-flex flex-wrap gap-2">
+
+                                                                <form method="POST"
+                                                                    onsubmit="return confirm('Deseja aprovar este cadastro?');">
+
+                                                                    <input type="hidden" name="csrf_token"
+                                                                        value="<?= htmlspecialchars($_SESSION['csrf_usuarios'], ENT_QUOTES, 'UTF-8') ?>">
+
+                                                                    <input type="hidden" name="id_usuario"
+                                                                        value="<?= (int) $solicitacao['id_usuario'] ?>">
+
+                                                                    <input type="hidden" name="acao" value="aprovar">
+
+                                                                    <button type="submit" class="btn btn-sm btn-success">
+                                                                        <i class="bi bi-check-circle me-1"></i>
+                                                                        Aprovar
+                                                                    </button>
+
+                                                                </form>
+
+                                                                <form method="POST"
+                                                                    onsubmit="return confirm('Tem certeza de que deseja recusar este cadastro?');">
+
+                                                                    <input type="hidden" name="csrf_token"
+                                                                        value="<?= htmlspecialchars($_SESSION['csrf_usuarios'], ENT_QUOTES, 'UTF-8') ?>">
+
+                                                                    <input type="hidden" name="id_usuario"
+                                                                        value="<?= (int) $solicitacao['id_usuario'] ?>">
+
+                                                                    <input type="hidden" name="acao" value="recusar">
+
+                                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                                        <i class="bi bi-x-circle me-1"></i>
+                                                                        Recusar
+                                                                    </button>
+
+                                                                </form>
+
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+
+                                                <?php endwhile; ?>
+
+                                            <?php else: ?>
+
+                                                <tr>
+                                                    <td colspan="5" class="text-center text-secondary py-4">
+                                                        Não existem solicitações pendentes.
+                                                    </td>
+                                                </tr>
+
+                                            <?php endif; ?>
+
+                                        </tbody>
+
+                                    </table>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body">
+
+                                <h2 class="h5 mb-3">Usuários cadastrados</h2>
+
                                 <form method="GET" class="row g-2 align-items-end">
 
                                     <div class="col-12 col-md-5">
-                                        <label for="buscarUsuario" class="form-label">Buscar usuário</label>
+                                        <label for="buscarUsuario" class="form-label">
+                                            Buscar usuário
+                                        </label>
+
                                         <input
                                             type="search"
                                             class="form-control"
@@ -405,11 +472,22 @@ $resultado = $stmt->get_result();
                                     </div>
 
                                     <div class="col-12 col-md-3">
-                                        <label for="filtroStatus" class="form-label">Filtrar por status</label>
+                                        <label for="filtroStatus" class="form-label">
+                                            Filtrar por status
+                                        </label>
+
                                         <select class="form-select" id="filtroStatus" name="status">
-                                            <option value="" <?= $status === '' ? 'selected' : '' ?>>Todos</option>
-                                            <option value="ativo" <?= $status === 'ativo' ? 'selected' : '' ?>>Ativos</option>
-                                            <option value="inativo" <?= $status === 'inativo' ? 'selected' : '' ?>>Inativos</option>
+                                            <option value="" <?= $status === '' ? 'selected' : '' ?>>
+                                                Todos
+                                            </option>
+
+                                            <option value="ativo" <?= $status === 'ativo' ? 'selected' : '' ?>>
+                                                Ativos
+                                            </option>
+
+                                            <option value="inativo" <?= $status === 'inativo' ? 'selected' : '' ?>>
+                                                Inativos
+                                            </option>
                                         </select>
                                     </div>
 
@@ -427,11 +505,13 @@ $resultado = $stmt->get_result();
 
                                     <div class="col-12">
                                         <a href="adicionar-usuario.php" class="btn btn-outline-primary">
-                                            <i class="bi bi-person-plus me-1"></i>Adicionar usuário
+                                            <i class="bi bi-person-plus me-1"></i>
+                                            Adicionar usuário
                                         </a>
                                     </div>
 
                                 </form>
+
                             </div>
                         </div>
                     </div>
@@ -439,21 +519,23 @@ $resultado = $stmt->get_result();
                     <div class="col-12">
                         <div class="card border-0 shadow-sm">
                             <div class="card-body">
+
                                 <div class="table-responsive">
                                     <table class="table table-hover align-middle mb-0">
 
                                         <thead class="table-light">
                                             <tr>
-                                                <th scope="col">Usuário</th>
-                                                <th scope="col">Cargo</th>
-                                                <th scope="col">Status</th>
-                                                <th scope="col">Telefone</th>
-                                                <th scope="col">Cadastro</th>
-                                                <th scope="col">Ações</th>
+                                                <th>Usuário</th>
+                                                <th>Cargo</th>
+                                                <th>Status</th>
+                                                <th>Telefone</th>
+                                                <th>Cadastro</th>
+                                                <th>Ações</th>
                                             </tr>
                                         </thead>
 
                                         <tbody>
+
                                             <?php if ($resultado->num_rows > 0): ?>
 
                                                 <?php while ($usuario = $resultado->fetch_assoc()): ?>
@@ -461,17 +543,21 @@ $resultado = $stmt->get_result();
                                                     <tr>
                                                         <td>
                                                             <div class="d-flex align-items-center gap-2">
+
                                                                 <span class="d-inline-flex align-items-center justify-content-center bg-body-secondary text-secondary rounded-circle flex-shrink-0 p-2">
                                                                     <i class="bi bi-person"></i>
                                                                 </span>
+
                                                                 <div>
                                                                     <div class="fw-semibold">
                                                                         <?= htmlspecialchars($usuario['login'], ENT_QUOTES, 'UTF-8') ?>
                                                                     </div>
+
                                                                     <small class="text-secondary">
                                                                         ID: <?= (int) $usuario['id_usuario'] ?>
                                                                     </small>
                                                                 </div>
+
                                                             </div>
                                                         </td>
 
@@ -483,9 +569,13 @@ $resultado = $stmt->get_result();
 
                                                         <td>
                                                             <?php if ((int) $usuario['ativo'] === 1): ?>
+
                                                                 <span class="badge text-bg-success">Ativo</span>
+
                                                             <?php else: ?>
+
                                                                 <span class="badge text-bg-secondary">Inativo</span>
+
                                                             <?php endif; ?>
                                                         </td>
 
@@ -508,6 +598,7 @@ $resultado = $stmt->get_result();
                                                         </td>
 
                                                         <td>
+
                                                             <?php if ((int) $usuario['ativo'] === 1): ?>
 
                                                                 <?php if ((int) $usuario['id_usuario'] === (int) ($_SESSION['id_usuario'] ?? 0)): ?>
@@ -518,7 +609,8 @@ $resultado = $stmt->get_result();
                                                                         disabled
                                                                         title="Você não pode desativar sua própria conta"
                                                                     >
-                                                                        <i class="bi bi-shield-lock me-1"></i>Sua conta
+                                                                        <i class="bi bi-shield-lock me-1"></i>
+                                                                        Sua conta
                                                                     </button>
 
                                                                 <?php else: ?>
@@ -535,8 +627,10 @@ $resultado = $stmt->get_result();
                                                                         <input type="hidden" name="acao" value="desativar">
 
                                                                         <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                                            <i class="bi bi-person-dash me-1"></i>Desativar
+                                                                            <i class="bi bi-person-dash me-1"></i>
+                                                                            Desativar
                                                                         </button>
+
                                                                     </form>
 
                                                                 <?php endif; ?>
@@ -555,11 +649,14 @@ $resultado = $stmt->get_result();
                                                                     <input type="hidden" name="acao" value="ativar">
 
                                                                     <button type="submit" class="btn btn-sm btn-outline-success">
-                                                                        <i class="bi bi-person-check me-1"></i>Ativar
+                                                                        <i class="bi bi-person-check me-1"></i>
+                                                                        Ativar
                                                                     </button>
+
                                                                 </form>
 
                                                             <?php endif; ?>
+
                                                         </td>
                                                     </tr>
 
@@ -574,24 +671,25 @@ $resultado = $stmt->get_result();
                                                 </tr>
 
                                             <?php endif; ?>
+
                                         </tbody>
 
                                     </table>
                                 </div>
+
                             </div>
                         </div>
                     </div>
 
                 </div>
+
             </main>
         </div>
     </div>
 
-    <?php
-    $stmt->close();
-    ?>
+    <?php $stmt->close(); ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
-</body>
 
+</body>
 </html>
